@@ -93,7 +93,7 @@ for iter = 1:iterations
         
         model.x = theta_vec;
         model.y = prob_vec;
-        model.p = getFullGPModel(model.x, model.y, 500, model.p);
+        model.p = getFullGPModel(model.x, model.y);
         
         %model.p = glmfit(theta_vec, prob_vec);
         %model.x = [model.x; theta_vec];
@@ -137,12 +137,13 @@ if ~output_off
     %theta_vec = experience(:,1);
     %scatter(theta_vec, prob_vec, 'filled');
 
-    z = linspace(min(experience(:,1))-1, max(experience(:,1))+1, 100)';
+    z = linspace(min(experience(:,1))-1, max(experience(:,1))+1, 200)';
     [m, s2, K] = model.f(model, z);
 
-    f = [m+2*sqrt(s2); flipdim(m-2*sqrt(s2),1)];
-    fill([z; flipdim(z,1)], f, [7 7 7]/8);
-    plot(z, m, 'LineWidth', 2);
+    plot_confidence(z, m, sqrt(s2));
+    %f = [m+2*sqrt(s2); flipdim(m-2*sqrt(s2),1)];
+    %fill([z; flipdim(z,1)], f, [7 7 7]/8);
+    %plot(z, m, 'LineWidth', 2);
     plot(model.x, model.y, '+', 'MarkerSize', 12)
     grid on
     xlabel('input, x')
