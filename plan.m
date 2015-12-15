@@ -1,18 +1,23 @@
-function [ u ] = plan( world, model, theta)
+function [ u, V ] = plan( world, model, theta, V_init)
 %value iteration
 %   Detailed explanation goes here
-Pslip = model.f(model.p, theta);
+Pslip = model.f(model, theta);
+probs = [1-2*Pslip; Pslip; Pslip];
 
-V = zeros(size(world.r));
+if nargin <= 3
+    V_init = zeros(size(world.r));
+end
+V = V_init;
 Vprev = ones(size(world.r));
 u = zeros(size(world.r));
 
 actions = {[0 1], [0 -1], [1 0], [-1 0]};
 diff = 1;
-limit = 0.01;
+limit = 0.1;
+counter = 0;
 
 while diff > limit
-    diff = max(max(Vprev-V)); %update here, so after reaching limit one more iteration will be done
+    diff = max(max(abs(Vprev-V))); %update here, so after reaching limit one more iteration will be done
     Vprev = V;
     for i = 1:size(world.r,1)
         for j=1:size(world.r,2)
@@ -27,6 +32,7 @@ while diff > limit
                 move_slip2 = move - [move(2) move(1)];
                 coords = [[i j] + move; [i j] + move_slip1; [i j] + move_slip2];
                 probs = [1-2*Pslip; Pslip; Pslip];
+                
                 for l=1:3
                     if coords(l, 1) < 1 || coords(l, 1) > size(world.r,1) || coords(l, 2) < 1 || coords(l,2) > size(world.r,2)
                         probs(l) = 0;
@@ -48,6 +54,11 @@ while diff > limit
             u(i,j) = dex;
         end
     end
+    counter = counter+1;
+end
+
+if counter > 50
+    counter
 end
 
 end

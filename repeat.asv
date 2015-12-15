@@ -16,14 +16,15 @@ R_std = std(Rh_vec,3);
 
 figure()
 hold on
-plot_confidence(1:size(R_mean,1), R_mean, R_std);
+plot_confidence(R_mean, R_st)
+plot(R_mean)
+f = [R_mean+2*R_std; flipdim(m-2*sqrt(s2),1)];
+fill([z; flipdim(z,1)], f, [7 7 7]/8);
 xlabel('Iteration')
 ylabel('R')
-
 figure()
-plot_confidence(1:size(w_mean,1), w_mean(:,1), w_std(:,1));
-plot_confidence(1:size(w_mean,1), w_mean(:,2), w_std(:,2));
-
+plot(w_hist)
 xlabel('Iteration')
 ylabel('w (mean and variance of policy parameter)')
+axis([0,100, -1, 2]);
 
