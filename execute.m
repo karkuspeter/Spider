@@ -1,7 +1,8 @@
 function [ R, transitions ] = execute(world, x0, u_plan, theta)
 %simulate experience
 %   Detailed explanation goes here
-Pslip = min(abs(theta.^2/2), 0.4);
+slip_fun = @(theta)min(sum(theta.^2/2/length(theta)), 0.4);
+Pslip = slip_fun(theta);
 
 actions = {[0 1], [0 -1], [1 0], [-1 0]};
 coord = x0;

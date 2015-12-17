@@ -5,21 +5,27 @@ world = 0;
 if ~exist('output_off')
     output_off = 0;
 end
-R_samples=10;
-theta_samples=10;
-iterations=100;
+R_samples=1;
+theta_samples=15;
+iterations=60;
+policy_samples=5;
+thetadim = 2;
+epsilon = 0.5;
 
-w = [-0.5 2];
-D = [];
-polyn = 2;
+mu = -0.5 * ones(1, thetadim);
+sigma = 2 * ones(1, thetadim);
+init_x = repmat([-5:0.2:5]', [1,thetadim]);
+for i=1:thetadim
+    init_x(:,i) = init_x(randperm(size(init_x,1)),i);
+end
+
 %model = struct('p', zeros(polyn,1), 'f', @(x,y) glmval(x,y,'probit'));
 %model = struct('p', zeros(polyn,1), 'f', @(p,x) polyval(p,x));
-init_x = [-5:0.2:5]';
 model = struct('p', 0, 'f', @(m, z) predictWithFullGPModel(m.p, m.x, m.y, z), 'x', init_x, 'y', rand(size(init_x))*0.1+0.3);
 model.p = getFullGPModel(model.x, model.y);
 %model = struct('p', 0, 'f', @(m, z) gp(m.p, @infExact, meanfunc, covfunc, likfunc, m.x, m.y, z), 'x', [], 'y', []);
 %alpha = 0.004; %worked for fixed straight plan using b
-alpha = 0.01;
+%alpha = 0.01;
 %alpha = 0.3;
 
 world = struct('r', -1 * ones(7,7), 'terminal', zeros(7,7));
@@ -30,10 +36,10 @@ world.terminal = (world.r ~= -1);
 world.r(4, 5:7) = -60;
 x0 = [1 2];
 
-experience = [];
-
 R_hist = [];
+Rmean_hist = [];
 theta_hist = [];
+trans_hist = [];
 w_hist = [];
 
 %try planner
@@ -48,12 +54,6 @@ w_hist = [];
 % plot(x', temp);
 % y=temp';
 
-%meanfunc = {@meanSum, {@meanLinear, @meanConst}};
-%covfunc = @covSEiso;
-%likfunc = @likGauss;
-%hyp2.mean = [0 0]; %hyp2.cov = [0; 0]; hyp2.lik = log(0.1);
-%model.p = hyp2;
-
 %[R, t] = execute(world, x0, u_plan, 0.2)
 prev_V = zeros(size(world.r));
 
@@ -61,11 +61,11 @@ for iter = 1:iterations
     D = [];
     for j=1:theta_samples
         % sample theta
-        theta = normrnd(w(1), abs(w(2)));
+        theta = normrnd(mu, sigma);
 
         % plan 
-        [u_plan prev_V] = plan(world, model, theta, prev_V);
-        %u_plan = plan(world, struct('p', 0.1, 'f', @(n,m) n), 0);
+        %[u_plan prev_V] = plan(world, model, theta, prev_V);
+        u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
         
         % execute plan, get real world experience
         R = 0;
@@ -75,23 +75,24 @@ for iter = 1:iterations
             R = R + Ri/R_samples;
             transitions = [transitions; ti];
         end
-        D = [D; [theta R]];
+        %D = [D; [theta R]];
         %if theta >= -1 && theta <= 1
-        experience = [experience; [theta, sum(transitions) size(transitions,1)]];
+        %experience = [experience; [theta, sum(transitions) size(transitions,1)]];
         %end
         theta_hist = [theta_hist; theta];
+        R_hist = [R_hist; R];
+        trans_hist = [trans_hist; sum(transitions) size(transitions,1)];
     end
-    w_hist = [w_hist; w];
-    R_hist = [R_hist; mean(D(:,2))];
+    w_hist = [w_hist; mu sigma];
+    Rmean_hist = [Rmean_hist; mean(R_hist(end-theta_samples+1:end))];
 
     % update model
-    if size(experience,1)>2*size(model.x,1)
-        prob_vec = experience(:,2)./2./experience(:,3);
-        theta_vec = experience(:,1);
+    if size(trans_hist,1)>2*size(model.x,1) || size(model.x,1) == size(init_x,1)
+        prob_vec = trans_hist(:,1)./2./trans_hist(:,2);
         %f = [ones(size(theta_vec)), theta_vec, theta_vec.^2, theta_vec.^3];
         %model.p = polyfit(theta_vec, prob_vec, polyn);
         
-        model.x = theta_vec;
+        model.x = theta_hist;
         model.y = prob_vec;
         model.p = getFullGPModel(model.x, model.y);
         
@@ -102,56 +103,83 @@ for iter = 1:iterations
     end
     
     % update policy
-    mu = w(1);
-    sigma = w(2);
-    grad_mu = (D(:,1) - mu)./(sigma^2);
-    grad_sigma = ((D(:,1) - mu).^2 - sigma^2)./(sigma^3);
-    b_mu = sum(grad_mu.^2.*D(:,2)) / sum(grad_mu.^2);
-    b_sigma = sum(grad_sigma.^2.*D(:,2)) / sum(grad_sigma.^2);
-    %b_mu=0;
-    %b_sigma=0;
+    dex_start = max(1, size(theta_hist,1)-theta_samples*policy_samples+1);
+    Dtheta = theta_hist(dex_start:end, :);
+    Dr = R_hist(dex_start:end, :);
     
-    delta_w = [ sigma^2 * sum(grad_mu.*(D(:,2)-b_mu));
-        sigma^2 * sum(grad_sigma.*(D(:,2)-b_sigma))]'./size(D,1)*alpha;
+    % add bias term?
+    % reweight samples from previous iteration
     
-    %normpdf(D(:,1), mu, sigma).*
+    % dual function
+    Z = @(eta)exp((Dr-max(Dr))/eta);
+    g_fun = @(eta) eta*epsilon + max(Dr) + eta .* log(sum(Z(eta)/10));
+    deta_fun = @(eta) epsilon + log(sum(Z(eta)/10)) - sum(Z(eta).*(Dr-max(Dr)))./(eta*sum(Z(eta)));
+    deal2 = @(varargin) deal(varargin{1:nargout});
+    opt_fun = @(eta) deal2(g_fun(eta), deta_fun(eta));
     
-    w = w + delta_w;
+    
+    eta_star = fmincon(opt_fun, [0.001], [-1], [0], [], [], [], [], [], optimset('Algorithm','interior-point', 'GradObj','on', 'MaxFunEvals', 500, 'Display', 'off'));
+    
+    Z = Z(eta_star);
+    Z_ext = repmat(Z,[1, size(Dtheta,2)]);
+    mu = sum(Z_ext.*Dtheta)/sum(Z);
+    denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
+    sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
+ 
+
     if ~output_off
-        w
+        [eta_star mu sigma]
     end
    
 end
 
 if ~output_off
 
+    slip_fun = @(theta)min(sum(theta.^2/2/length(theta)), 0.4);
+    
+    if thetadim == 1
+        figure()
+        hold on
+        %prob_vec = experience(:,2)./2./experience(:,3);
+        %theta_vec = experience(:,1);
+        %scatter(theta_vec, prob_vec, 'filled');
+
+        z = linspace(min(theta_hist)-1, max(theta_hist)+1, 200)';
+        [m, s2, K] = model.f(model, z);
+
+        plot_confidence(z, m, sqrt(s2));
+        plot(model.x, model.y, '+', 'MarkerSize', 12)
+        grid on
+        xlabel('input, x')
+        ylabel('output, y')
+        hold off        
+    elseif thetadim == 2
+        figure()
+        hold on
+        
+        val = zeros(100,100);
+        pred_m = val;
+        pred_s2 = val;
+        %x=linspace(min(min(theta_hist))-1,max(max(theta_hist))+1,100);
+        x=linspace(-1,1,100);
+        y=x;
+        for i=1:100
+            for j=1:100
+                val(i,j) = slip_fun([x(i),y(j)]);
+            end
+            [m, s2, K] = model.f(model, [x(i)*ones(size(x')), x']);
+            pred_m(i, :) = m';
+            pred_s2(i, :) = s2';
+        end
+        
+        surf(x,y, pred_m);
+        scatter3(model.x(:,1),model.x(:,2),model.y); 
+        
+        hold off
+    end
+    
     figure()
-    theta=[-2:0.01:2]';
-    est = model.f(model, theta);
-    real = min(abs(theta.^2/2), 0.4);
-    %plot(theta, est, theta, real);
-
-    figure()
-    hold on
-    %prob_vec = experience(:,2)./2./experience(:,3);
-    %theta_vec = experience(:,1);
-    %scatter(theta_vec, prob_vec, 'filled');
-
-    z = linspace(min(experience(:,1))-1, max(experience(:,1))+1, 200)';
-    [m, s2, K] = model.f(model, z);
-
-    plot_confidence(z, m, sqrt(s2));
-    %f = [m+2*sqrt(s2); flipdim(m-2*sqrt(s2),1)];
-    %fill([z; flipdim(z,1)], f, [7 7 7]/8);
-    %plot(z, m, 'LineWidth', 2);
-    plot(model.x, model.y, '+', 'MarkerSize', 12)
-    grid on
-    xlabel('input, x')
-    ylabel('output, y')
-    hold off
-
-    figure()
-    plot(R_hist)
+    plot(Rmean_hist)
     xlabel('Iteration')
     ylabel('R')
     figure()
