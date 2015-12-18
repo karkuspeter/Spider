@@ -6,11 +6,12 @@ if ~exist('output_off')
     output_off = 0;
 end
 R_samples=1;
-theta_samples=15;
+theta_samples=36;
 iterations=60;
 policy_samples=5;
 thetadim = 2;
-epsilon = 0.5;
+epsilon = 0.05;
+sparseM = 100; % number of pseudo-inputs
 
 mu = -0.5 * ones(1, thetadim);
 sigma = 2 * ones(1, thetadim);
@@ -21,8 +22,12 @@ end
 
 %model = struct('p', zeros(polyn,1), 'f', @(x,y) glmval(x,y,'probit'));
 %model = struct('p', zeros(polyn,1), 'f', @(p,x) polyval(p,x));
-model = struct('p', 0, 'f', @(m, z) predictWithFullGPModel(m.p, m.x, m.y, z), 'x', init_x, 'y', rand(size(init_x))*0.1+0.3);
-model.p = getFullGPModel(model.x, model.y);
+
+%model = struct('p', 0, 'f', @(m, z) predictWithFullGPModel(m.p, m.x, m.y, z), 'x', init_x, 'y', rand(size(init_x))*0.1+0.3);
+%model.p = getFullGPModel(model.x, model.y);
+model = struct('p', 0, 'f', @(m, z) spgp_pred(m.y,m.x,m.xpseudo,z,m.p), 'x', init_x, 'y', rand(size(init_x,1),1)*0.1+0.3, 'xpseudo', 0);
+[model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
+
 %model = struct('p', 0, 'f', @(m, z) gp(m.p, @infExact, meanfunc, covfunc, likfunc, m.x, m.y, z), 'x', [], 'y', []);
 %alpha = 0.004; %worked for fixed straight plan using b
 %alpha = 0.01;
@@ -64,8 +69,8 @@ for iter = 1:iterations
         theta = normrnd(mu, sigma);
 
         % plan 
-        %[u_plan prev_V] = plan(world, model, theta, prev_V);
-        u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
+        [u_plan prev_V] = plan(world, model, theta); %, prev_V);
+        %u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
         
         % execute plan, get real world experience
         R = 0;
@@ -89,17 +94,11 @@ for iter = 1:iterations
     % update model
     if size(trans_hist,1)>2*size(model.x,1) || size(model.x,1) == size(init_x,1)
         prob_vec = trans_hist(:,1)./2./trans_hist(:,2);
-        %f = [ones(size(theta_vec)), theta_vec, theta_vec.^2, theta_vec.^3];
-        %model.p = polyfit(theta_vec, prob_vec, polyn);
         
         model.x = theta_hist;
         model.y = prob_vec;
-        model.p = getFullGPModel(model.x, model.y);
-        
-        %model.p = glmfit(theta_vec, prob_vec);
-        %model.x = [model.x; theta_vec];
-        %model.y = [model.y; prob_vec];
-        %model.p = minimize(hyp2, @gp, -100, @infExact, meanfunc, covfunc, likfunc, model.x, model.y);
+        [model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
+        %model.p = getFullGPModel(model.x, model.y);
     end
     
     % update policy
