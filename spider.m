@@ -10,7 +10,7 @@ theta_samples=36;
 iterations=60;
 policy_samples=5;
 thetadim = 2;
-epsilon = 0.05;
+epsilon = 0.95;
 sparseM = 100; % number of pseudo-inputs
 
 mu = -0.5 * ones(1, thetadim);
@@ -69,8 +69,8 @@ for iter = 1:iterations
         theta = normrnd(mu, sigma);
 
         % plan 
-        [u_plan prev_V] = plan(world, model, theta); %, prev_V);
-        %u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
+        %[u_plan prev_V] = plan(world, model, theta); %, prev_V);
+        u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
         
         % execute plan, get real world experience
         R = 0;
@@ -92,27 +92,43 @@ for iter = 1:iterations
     Rmean_hist = [Rmean_hist; mean(R_hist(end-theta_samples+1:end))];
 
     % update model
-    if size(trans_hist,1)>2*size(model.x,1) || size(model.x,1) == size(init_x,1)
-        prob_vec = trans_hist(:,1)./2./trans_hist(:,2);
-        
-        model.x = theta_hist;
-        model.y = prob_vec;
-        [model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
-        %model.p = getFullGPModel(model.x, model.y);
-    end
+%     if size(trans_hist,1)>2*size(model.x,1) || size(model.x,1) == size(init_x,1)
+%         prob_vec = trans_hist(:,1)./2./trans_hist(:,2);
+%         
+%         model.x = theta_hist;
+%         model.y = prob_vec;
+%         [model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
+%         %model.p = getFullGPModel(model.x, model.y);
+%     end
     
     % update policy
     dex_start = max(1, size(theta_hist,1)-theta_samples*policy_samples+1);
     Dtheta = theta_hist(dex_start:end, :);
+    Dw = zeros(size(Dtheta,1),1);
     Dr = R_hist(dex_start:end, :);
+    %compute weights
+    for i=1:min(policy_samples, size(Dw,1)/theta_samples)
+        dex = (i-1)*theta_samples+1:(i)*theta_samples;
+        prob_sample = prod(normpdf(Dtheta(dex,:), repmat(w_hist(end-i+1, 1:thetadim), theta_samples, 1), repmat(w_hist(end-i+1, thetadim+1:end), theta_samples, 1)),2);
+        prob_current = prod(normpdf(Dtheta(dex,:), repmat(mu, theta_samples, 1), repmat(sigma, theta_samples, 1)),2);
+        Dw(dex, 1) = prob_current./prob_sample;
+        Dw(dex, 1) = Dw(dex, 1)/sum(Dw(dex, 1));
+    end
+    Dw = Dw / min(policy_samples, size(Dw,1)/theta_samples);
+    sum(Dw)
+    % no weights
+    %Dw = 1/size(Dr,1)*ones(size(Dr));
+    % fixed weight
+    %Dw = 1/10*ones(size(Dr));
     
     % add bias term?
     % reweight samples from previous iteration
+    % planner sometimes stucks in 10000 iterations, why?
     
     % dual function
     Z = @(eta)exp((Dr-max(Dr))/eta);
-    g_fun = @(eta) eta*epsilon + max(Dr) + eta .* log(sum(Z(eta)/10));
-    deta_fun = @(eta) epsilon + log(sum(Z(eta)/10)) - sum(Z(eta).*(Dr-max(Dr)))./(eta*sum(Z(eta)));
+    g_fun = @(eta) eta*epsilon + max(Dr) + eta .* log(sum(Z(eta).*Dw));
+    deta_fun = @(eta) epsilon + log(sum(Z(eta).*Dw)) - sum(Z(eta).*(Dr-max(Dr)))./(eta*sum(Z(eta)));
     deal2 = @(varargin) deal(varargin{1:nargout});
     opt_fun = @(eta) deal2(g_fun(eta), deta_fun(eta));
     
