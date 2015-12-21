@@ -6,9 +6,9 @@ if ~exist('output_off')
     output_off = 0;
 end
 R_samples=1;
-theta_samples=36;
+theta_samples=9;
 iterations=60;
-policy_samples=5;
+policy_samples=20;
 thetadim = 2;
 epsilon = 0.95;
 sparseM = 100; % number of pseudo-inputs
@@ -107,22 +107,23 @@ for iter = 1:iterations
     Dw = zeros(size(Dtheta,1),1);
     Dr = R_hist(dex_start:end, :);
     %compute weights
-    for i=1:min(policy_samples, size(Dw,1)/theta_samples)
-        dex = (i-1)*theta_samples+1:(i)*theta_samples;
-        prob_sample = prod(normpdf(Dtheta(dex,:), repmat(w_hist(end-i+1, 1:thetadim), theta_samples, 1), repmat(w_hist(end-i+1, thetadim+1:end), theta_samples, 1)),2);
-        prob_current = prod(normpdf(Dtheta(dex,:), repmat(mu, theta_samples, 1), repmat(sigma, theta_samples, 1)),2);
-        Dw(dex, 1) = prob_current./prob_sample;
-        Dw(dex, 1) = Dw(dex, 1)/sum(Dw(dex, 1));
+    if (reweight_samples)
+        for i=1:min(policy_samples, size(Dw,1)/theta_samples)
+            dex = (i-1)*theta_samples+1:(i)*theta_samples;
+            prob_sample = prod(normpdf(Dtheta(dex,:), repmat(w_hist(end-i+1, 1:thetadim), theta_samples, 1), repmat(w_hist(end-i+1, thetadim+1:end), theta_samples, 1)),2);
+            prob_current = prod(normpdf(Dtheta(dex,:), repmat(mu, theta_samples, 1), repmat(sigma, theta_samples, 1)),2);
+            Dw(dex, 1) = prob_current./prob_sample;
+            Dw(dex, 1) = Dw(dex, 1)/sum(Dw(dex, 1));
+        end
+        Dw = Dw / min(policy_samples, size(Dw,1)/theta_samples);
+    else   
+        % no weights
+        Dw = 1/size(Dr,1)*ones(size(Dr));
+        % fixed weight
+        %Dw = 1/10*ones(size(Dr));
     end
-    Dw = Dw / min(policy_samples, size(Dw,1)/theta_samples);
-    sum(Dw)
-    % no weights
-    %Dw = 1/size(Dr,1)*ones(size(Dr));
-    % fixed weight
-    %Dw = 1/10*ones(size(Dr));
     
     % add bias term?
-    % reweight samples from previous iteration
     % planner sometimes stucks in 10000 iterations, why?
     
     % dual function
