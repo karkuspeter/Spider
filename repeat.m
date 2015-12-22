@@ -1,4 +1,4 @@
-rep = 25;
+rep = 100;
 output_off = 1;
 
 wh_vec = [];

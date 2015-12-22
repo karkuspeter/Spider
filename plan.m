@@ -1,7 +1,7 @@
-function [ u, V ] = plan( world, model, theta, V_init)
+function [ u, V ] = plan( world, model, Pslip, V_init)
 %value iteration
 %   Detailed explanation goes here
-Pslip = model.f(model, theta);
+
 probs = [1-2*Pslip; Pslip; Pslip];
 
 if nargin <= 3
@@ -57,9 +57,8 @@ while diff > limit
     counter = counter+1;
 end
 
-if counter > 50
-    counter
+if counter > 40
+    [counter, Pslip]
 end
 
 end
-
