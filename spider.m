@@ -25,26 +25,12 @@ epsilon = 0.60;
 sparseM = 500; % number of pseudo-inputs
 GPoffset = 0.3;
 
-
 mu = -0.5 * ones(1, thetadim);
 sigma = 2 * ones(1, thetadim);
-init_x = repmat([-5:0.2:5]', [1,thetadim]);
-for i=1:thetadim
-    init_x(:,i) = init_x(randperm(size(init_x,1)),i);
-end
 
-%model = struct('p', zeros(polyn,1), 'f', @(x,y) glmval(x,y,'probit'));
-%model = struct('p', zeros(polyn,1), 'f', @(p,x) polyval(p,x));
-
-%model = struct('p', 0, 'f', @(m, z) predictWithFullGPModel(m.p, m.x, m.y, z), 'x', init_x, 'y', rand(size(init_x))*0.1+0.3);
-%model.p = getFullGPModel(model.x, model.y);
-model = struct('p', 0, 'f', @(m, z) spgp_pred(m.y,m.x,m.xpseudo,z,m.p)+GPoffset, 'x', init_x, 'y', rand(size(init_x,1),1)*0.1+0.3-GPoffset, 'xpseudo', 0);
-[model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
-
-%model = struct('p', 0, 'f', @(m, z) gp(m.p, @infExact, meanfunc, covfunc, likfunc, m.x, m.y, z), 'x', [], 'y', []);
-%alpha = 0.004; %worked for fixed straight plan using b
-%alpha = 0.01;
-%alpha = 0.3;
+init_p = 0.2;
+model = struct('p', 0, 'f', @(m, z) m.p);
+model.p = init_p;
 
 world = struct('r', -1 * ones(7,7), 'terminal', zeros(7,7));
 world.r(3:5, 1) = -200;
@@ -59,21 +45,9 @@ Rmean_hist = [];
 theta_hist = [];
 trans_hist = [];
 w_hist = [];
-
-%try planner
-% temp = [];
-% x=[0:0.01:0.2]';
-% for i=x'
-%     u_plan = plan(world, struct('p', i, 'f', @(n,m) n), 0);
-%     [R, t] = execute(world, x0, u_plan, 0);
-%     temp = [temp R];
-% end
-% figure();
-% plot(x', temp);
-% y=temp';
-
-%[R, t] = execute(world, x0, u_plan, 0.2)
 prev_V = zeros(size(world.r));
+
+init_plan = plan(world, model, init_p);
 
 for iter = 1:iterations
     D = [];
@@ -81,26 +55,33 @@ for iter = 1:iterations
         % sample theta
         theta = normrnd(mu, sigma);
 
-        % plan 
-        if(plan_off)
-            u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
-        else
-            Pslip = max(0,model.f(model, theta));
-            [u_plan prev_V] = plan(world, model, Pslip);%, prev_V);
-        end
-        
-        % execute plan, get real world experience
         R = 0;
         transitions = [];
+        Pslip = init_p;
+        prev_plan = init_plan;
         for i=1:R_samples
+            % plan 
+            if(plan_off)
+                u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
+            else
+                Pslip = max(0,model.f(model, theta));
+                [u_plan prev_V] = plan(world, model, Pslip);%, prev_V);
+            end
+
+            if (u_plan ~= prev_plan)
+                i = 1;
+                R = 0;
+                transitions = [];
+            end
+            % execute plan, get real world experience
             [Ri, ti] = execute(world, x0, u_plan, theta);
             R = R + Ri/R_samples;
             transitions = [transitions; ti];
+            
+            prev_plan = u_plan;
+            Pslip = sum(transitions)/size(transitions,1)/2;
         end
-        %D = [D; [theta R]];
-        %if theta >= -1 && theta <= 1
-        %experience = [experience; [theta, sum(transitions) size(transitions,1)]];
-        %end
+
         theta_hist = [theta_hist; theta];
         R_hist = [R_hist; R];
         trans_hist = [trans_hist; sum(transitions) size(transitions,1)];
@@ -108,16 +89,6 @@ for iter = 1:iterations
     w_hist = [w_hist; mu sigma];
     Rmean_hist = [Rmean_hist; mean(R_hist(end-theta_samples+1:end))];
 
-    % update model
-     if (~plan_off) && (size(trans_hist,1)>2*size(model.x,1) || size(model.x,1) == size(init_x,1))
-         prob_vec = trans_hist(:,1)./2./trans_hist(:,2);
-         
-         model.x = theta_hist;
-         model.y = prob_vec-GPoffset;
-         [model.p model.xpseudo] = optimizeGP(model.x, model.y, sparseM);
-         %model.p = getFullGPModel(model.x, model.y);
-     end
-    
     % update policy
     dex_start = max(1, size(theta_hist,1)-theta_samples*policy_samples+1);
     Dtheta = theta_hist(dex_start:end, :);
@@ -141,7 +112,6 @@ for iter = 1:iterations
     end
     
     % add bias term?
-    % planner sometimes stucks in 10000 iterations, why?
     
     % dual function
     Z = @(eta)exp((Dr-max(Dr))/eta);
@@ -173,9 +143,6 @@ if ~output_off
     if thetadim == 1
         figure()
         hold on
-        %prob_vec = experience(:,2)./2./experience(:,3);
-        %theta_vec = experience(:,1);
-        %scatter(theta_vec, prob_vec, 'filled');
 
         z = linspace(min(theta_hist)-1, max(theta_hist)+1, 200)';
         [m, s2, K] = model.f(model, z);
