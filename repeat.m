@@ -1,12 +1,13 @@
-rep = 100;
+rep = 10;
 output_off = 1;
 
 wh_vec = [];
 Rh_vec = [];
-for i=1:rep
+for irep=1:rep
     spider;
     wh_vec = cat(3,wh_vec,w_hist);
     Rh_vec = cat(3,Rh_vec,Rmean_hist);
+    irep
 end
 
 w_mean = mean(wh_vec,3);

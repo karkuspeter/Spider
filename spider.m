@@ -16,12 +16,12 @@ end
 if ~exist('reweight_samples')
     reweight_samples = 1;
 end
-R_samples=4;
-theta_samples=25;
-iterations=60;
-policy_samples=4;
+R_samples=6;
+theta_samples=14;
+iterations=100;
+policy_samples=6;
 thetadim = 3;
-epsilon = 0.85;
+epsilon = 0.60;
 sparseM = 500; % number of pseudo-inputs
 GPoffset = 0.3;
 
