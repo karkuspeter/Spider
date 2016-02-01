@@ -16,11 +16,11 @@ end
 if ~exist('reweight_samples')
     reweight_samples = 1;
 end
-R_samples=6;
-theta_samples=14;
+R_samples=8;
+theta_samples=8;
 iterations=100;
-policy_samples=6;
-thetadim = 3;
+policy_samples=4;
+thetadim = 2;
 epsilon = 0.60;
 sparseM = 500; % number of pseudo-inputs
 GPoffset = 0.3;
@@ -45,12 +45,15 @@ Rmean_hist = [];
 theta_hist = [];
 trans_hist = [];
 w_hist = [];
+guess_hist = [];
 prev_V = zeros(size(world.r));
 
 init_plan = plan(world, model, init_p);
 
 for iter = 1:iterations
     D = [];
+    replans = 0;
+    
     for j=1:theta_samples
         % sample theta
         theta = normrnd(mu, sigma);
@@ -64,11 +67,12 @@ for iter = 1:iterations
             if(plan_off)
                 u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
             else
-                Pslip = max(0,model.f(model, theta));
-                [u_plan prev_V] = plan(world, model, Pslip);%, prev_V);
+                %Pslip = max(0,model.f(model, theta));
+                [u_plan prev_V] = plan(world, model, Pslip, prev_V);
             end
 
-            if (u_plan ~= prev_plan)
+            if ~isequal(u_plan, prev_plan)
+                replans = replans + 1;
                 i = 1;
                 R = 0;
                 transitions = [];
@@ -80,8 +84,11 @@ for iter = 1:iterations
             
             prev_plan = u_plan;
             Pslip = sum(transitions)/size(transitions,1)/2;
-        end
 
+        end
+        slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
+        guess_hist = [guess_hist; Pslip slip_fun(theta)];
+            
         theta_hist = [theta_hist; theta];
         R_hist = [R_hist; R];
         trans_hist = [trans_hist; sum(transitions) size(transitions,1)];
@@ -125,59 +132,63 @@ for iter = 1:iterations
     
     Z = Z(eta_star);
     Z_ext = repmat(Z,[1, size(Dtheta,2)]);
-    mu = sum(Z_ext.*Dtheta)/sum(Z);
-    denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
-    sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
- 
+    
+    if(iter > 4)
+        mu = sum(Z_ext.*Dtheta)/sum(Z);
+        denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
+        sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
+    end
 
     if ~output_off
-        [eta_star mu sigma]
+        [replans eta_star mu sigma]
     end
    
 end
 
 if ~output_off
 
-    slip_fun = @(theta)min(sum(theta.^2/2/length(theta)), 0.4);
+%     slip_fun = @(theta)min(sum(theta.^2/2/length(theta)), 0.4);
+%     if thetadim == 1
+%         figure()
+%         hold on
+% 
+%         z = linspace(min(theta_hist)-1, max(theta_hist)+1, 200)';
+%         [m, s2, K] = model.f(model, z);
+% 
+%         plot_confidence(z, m, sqrt(s2));
+%         plot(model.x, model.y, '+', 'MarkerSize', 12)
+%         grid on
+%         xlabel('input, x')
+%         ylabel('output, y')
+%         hold off        
+%     elseif thetadim == 2
+%         figure()
+%         hold on
+%         
+%         val = zeros(100,100);
+%         pred_m = val;
+%         pred_s2 = val;
+%         %x=linspace(min(min(theta_hist))-1,max(max(theta_hist))+1,100);
+%         x=linspace(-1,1,100);
+%         y=x;
+%         for i=1:100
+%             for j=1:100
+%                 val(i,j) = slip_fun([x(i),y(j)]);
+%             end
+%             [m, s2, K] = model.f(model, [x(i)*ones(size(x')), x']);
+%             pred_m(i, :) = m';
+%             pred_s2(i, :) = s2';
+%         end
+%         
+%         surf(x,y, pred_m);
+%         scatter3(model.x(:,1),model.x(:,2),model.y); 
+%         
+%         hold off
+%     end
     
-    if thetadim == 1
-        figure()
-        hold on
-
-        z = linspace(min(theta_hist)-1, max(theta_hist)+1, 200)';
-        [m, s2, K] = model.f(model, z);
-
-        plot_confidence(z, m, sqrt(s2));
-        plot(model.x, model.y, '+', 'MarkerSize', 12)
-        grid on
-        xlabel('input, x')
-        ylabel('output, y')
-        hold off        
-    elseif thetadim == 2
-        figure()
-        hold on
-        
-        val = zeros(100,100);
-        pred_m = val;
-        pred_s2 = val;
-        %x=linspace(min(min(theta_hist))-1,max(max(theta_hist))+1,100);
-        x=linspace(-1,1,100);
-        y=x;
-        for i=1:100
-            for j=1:100
-                val(i,j) = slip_fun([x(i),y(j)]);
-            end
-            [m, s2, K] = model.f(model, [x(i)*ones(size(x')), x']);
-            pred_m(i, :) = m';
-            pred_s2(i, :) = s2';
-        end
-        
-        surf(x,y, pred_m);
-        scatter3(model.x(:,1),model.x(:,2),model.y); 
-        
-        hold off
-    end
-    
+    figure()
+    plot(guess_hist(:,1) - guess_hist(:,2))
+    mean(guess_hist(:,1) - guess_hist(:,2))
     figure()
     plot(Rmean_hist)
     xlabel('Iteration')

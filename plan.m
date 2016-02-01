@@ -57,7 +57,7 @@ while diff > limit
     counter = counter+1;
 end
 
-if counter > 40
+if counter > 60
     [counter, Pslip]
 end
 
