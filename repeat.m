@@ -1,8 +1,11 @@
-rep = 25;
+rep = 10;
 output_off = 1;
+keep_prev = 0;
 
-wh_vec = [];
-Rh_vec = [];
+if ~keep_prev || ~exist('wh_vec') || ~exits('Rh_vec')
+    wh_vec = [];
+    Rh_vec = [];
+end
 for irep=1:rep
     spider;
     wh_vec = cat(3,wh_vec,w_hist);
@@ -30,3 +33,6 @@ figure()
 plot_confidence((1:size(w_mean,1))', w_mean(:,2), w_std(:,2));
 xlabel('Iteration')
 ylabel('w (variance of policy parameter)')
+
+[sum(Rh_vec(end-1,1,:) < 10), size(Rh_vec,3)]
+
