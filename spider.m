@@ -16,11 +16,11 @@ end
 if ~exist('reweight_samples')
     reweight_samples = 1;
 end
-R_samples=8;
-theta_samples=8;
+R_samples=6;
+theta_samples=20;
 iterations=100;
 policy_samples=4;
-thetadim = 2;
+thetadim = 3;
 epsilon = 0.60;
 sparseM = 500; % number of pseudo-inputs
 GPoffset = 0.3;
@@ -52,7 +52,7 @@ init_plan = plan(world, model, init_p);
 
 for iter = 1:iterations
     D = [];
-    replans = 0;
+    wasted_plans = 0;
     
     for j=1:theta_samples
         % sample theta
@@ -72,10 +72,11 @@ for iter = 1:iterations
             end
 
             if ~isequal(u_plan, prev_plan)
-                replans = replans + 1;
+                wasted_plans = wasted_plans + i;
                 i = 1;
                 R = 0;
-                transitions = [];
+                prev_V = zeros(size(world.r));
+                %transitions = [];
             end
             % execute plan, get real world experience
             [Ri, ti] = execute(world, x0, u_plan, theta);
@@ -140,7 +141,7 @@ for iter = 1:iterations
     end
 
     if ~output_off
-        [replans eta_star mu sigma]
+        [wasted_plans eta_star mu sigma]
     end
    
 end
