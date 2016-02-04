@@ -2,6 +2,7 @@ function [ u, V ] = plan( world, model, Pslip, V_init)
 %value iteration
 %   Detailed explanation goes here
 
+Pslip = min(Pslip, 0.4);
 probs = [1-2*Pslip; Pslip; Pslip];
 
 if nargin <= 3
@@ -13,7 +14,7 @@ u = zeros(size(world.r));
 
 actions = {[0 1], [0 -1], [1 0], [-1 0]};
 diff = 1;
-limit = 0.1;
+limit = 0.5;
 counter = 0;
 
 while diff > limit
@@ -57,8 +58,8 @@ while diff > limit
     counter = counter+1;
 end
 
-if counter > 60
-    [counter, Pslip]
-end
+%if counter > 60
+%    [counter, Pslip]
+%end
 
 end

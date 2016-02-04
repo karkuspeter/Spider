@@ -45,6 +45,11 @@ while world.terminal(coord(1), coord(2)) == 0 && size(R,1) < 150
     R = [R; (world.r(coord(1), coord(2))+theta_reward_func(theta))];
 end
 
+% cheat: reproduce transitions to reflect real Pslip, rather than decreased
+% due to edge of world
+for i=1:length(transitions)
+    transitions(i) = (rand()<2*Pslip);
+end
 R = sum(R);
 
 end
