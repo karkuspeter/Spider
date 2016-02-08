@@ -16,9 +16,9 @@ end
 if ~exist('reweight_samples')
     reweight_samples = 1;
 end
-R_samples=6;
+R_samples=8;
 theta_samples=20;
-iterations=100;
+iterations=50;
 policy_samples=4;
 thetadim = 3;
 epsilon = 0.60;
@@ -47,8 +47,11 @@ trans_hist = [];
 w_hist = [];
 guess_hist = [];
 prev_V = zeros(size(world.r));
+total_samples = 0;
 
 init_plan = plan(world, model, init_p);
+
+bridge_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
 
 for iter = 1:iterations
     D = [];
@@ -65,7 +68,7 @@ for iter = 1:iterations
         for i=1:R_samples
             % plan 
             if(plan_off)
-                u_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
+                u_plan = bridge_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
                 [u_plan prev_V] = plan(world, model, Pslip, prev_V);
@@ -143,6 +146,8 @@ for iter = 1:iterations
     if ~output_off
         [wasted_plans eta_star mu sigma]
     end
+    
+    total_samples = total_samples + theta_samples*R_samples + wasted_plans;
    
 end
 
@@ -199,5 +204,7 @@ if ~output_off
     xlabel('Iteration')
     ylabel('w (mean and variance of policy parameter)')
     axis([0,100, -1, 2]);
+    
+    total_samples
     
 end

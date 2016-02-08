@@ -10,7 +10,7 @@ for irep=1:rep
     spider;
     wh_vec = cat(3,wh_vec,w_hist);
     Rh_vec = cat(3,Rh_vec,Rmean_hist);
-    irep
+    irep, sum(Rh_vec(end-1,1,:) < 10)di
 end
 
 w_mean = mean(wh_vec,3);
