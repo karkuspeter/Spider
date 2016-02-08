@@ -17,27 +17,23 @@ if ~exist('reweight_samples')
     reweight_samples = 1;
 end
 R_samples=8;
-theta_samples=20;
-iterations=50;
+theta_samples=50;
+iterations=20;
 policy_samples=4;
 thetadim = 3;
 epsilon = 0.60;
 sparseM = 500; % number of pseudo-inputs
 GPoffset = 0.3;
 
-mu = -0.5 * ones(1, thetadim);
-sigma = 2 * ones(1, thetadim);
+mu = [-0.5 -1 0.5];
+%mu = -0.5 * ones(1, thetadim);
+sigma = 0.5 * ones(1, thetadim);
 
 init_p = 0.2;
 model = struct('p', 0, 'f', @(m, z) m.p);
 model.p = init_p;
 
-world = struct('r', -1 * ones(7,7), 'terminal', zeros(7,7));
-world.r(3:5, 1) = -200;
-world.r(3:5, 3:4) = -200;
-world.r(7, 2) = 50;
-world.terminal = (world.r ~= -1);
-world.r(4, 5:7) = -60;
+world = world1();
 x0 = [1 2];
 
 R_hist = [];
@@ -49,9 +45,14 @@ guess_hist = [];
 prev_V = zeros(size(world.r));
 total_samples = 0;
 
-init_plan = plan(world, model, init_p);
+%compare planners
+% p1 = plan(world, 0.2);
+% p2 = plan2(world, struct('p', 0.2, 'f', @(m,t) m.p), 0.2);
+% p2(p2==0) = 1;
+% p1==p2
 
-bridge_plan = plan(world, struct('p', 0, 'f', @(m,t) m.p), 0);
+[dummy, init_plan] = plan(world, init_p, 0);
+bridge_plan = plan(world, 0, 0);
 
 for iter = 1:iterations
     D = [];
@@ -71,14 +72,13 @@ for iter = 1:iterations
                 u_plan = bridge_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
-                [u_plan prev_V] = plan(world, model, Pslip, prev_V);
+                [u_plan, plan_raw] = plan(world, Pslip, prev_plan);
             end
 
-            if ~isequal(u_plan, prev_plan)
+            if ~isequal(plan_raw, prev_plan)
                 wasted_plans = wasted_plans + i;
                 i = 1;
                 R = 0;
-                prev_V = zeros(size(world.r));
                 %transitions = [];
             end
             % execute plan, get real world experience
@@ -86,7 +86,7 @@ for iter = 1:iterations
             R = R + Ri/R_samples;
             transitions = [transitions; ti];
             
-            prev_plan = u_plan;
+            prev_plan = plan_raw;
             Pslip = sum(transitions)/size(transitions,1)/2;
 
         end
@@ -137,11 +137,11 @@ for iter = 1:iterations
     Z = Z(eta_star);
     Z_ext = repmat(Z,[1, size(Dtheta,2)]);
     
-    if(iter > 4)
+    %if(iter > 4)
         mu = sum(Z_ext.*Dtheta)/sum(Z);
         denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
         sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
-    end
+    %end
 
     if ~output_off
         [wasted_plans eta_star mu sigma]
