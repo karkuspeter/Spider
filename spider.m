@@ -218,8 +218,23 @@ if ~output_off
 %     end
     
     figure()
-    plot(guess_hist(:,1) - guess_hist(:,2))
-    mean(guess_hist(:,1) - guess_hist(:,2))
+    hold on
+    %plot(guess_hist(:,2), guess_hist(:,2), guess_hist(:,2), 0.05*ones(size(guess_hist,1)));
+    %scatter(guess_hist(:,2), guess_hist(:,1));
+    
+    edges = 0:0.005:0.11;
+    values = edges(2:end);
+    guess_bars = zeros(size(values));
+    guess_std = zeros(size(values));
+    for i=1:length(values)
+        bin_values = guess_hist( guess_hist(:,2)>=edges(i) & guess_hist(:,2)<edges(i+1), 1);
+        guess_bars(i) = mean(bin_values);
+        guess_std(i) = std(bin_values);
+    end
+    %bar(values, guess_bars);
+    plot(values,values,values, 0.05*ones(size(values)));
+    errorbar(values, guess_bars, guess_std);
+
     figure()
     plot(Rmean_hist)
     xlabel('Iteration')

@@ -43,6 +43,24 @@
     plot(pvals, pvals);
     scatter(pvals, realPcurv);
     
+    %1D theta
+    figure()
+    theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
+    slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
+    theta = -1.5:0.01:1.5;
+    plot(theta, theta_reward_func(theta'), theta, slip_fun(theta'));
+    
+    %10D theta
+    figure()
+    theta_reward_func = @(theta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
+    slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
+    theta = -1.5:0.01:1.5;
+    thetaD = zeros(size(theta,2),3);
+    thetaD(:,1) = theta';
+    thetaD(:,2) = theta';
+    thetaD(:,3) = theta';
+    plot(theta, theta_reward_func(thetaD), theta, slip_fun(thetaD), theta, zeros(size(theta)));
+    
     time1 
     time2
     
