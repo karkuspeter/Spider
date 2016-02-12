@@ -10,18 +10,9 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
                 'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
-                'theta_reward_func', 0, 'slip_fun', 0);
+                'theta_reward_func', 0, 'slip_fun', 0, 'trans_cheat', 0);
 
-params.plan_off = 0;
-params.reweight_samples = 1;
-params.R_dependency = 0;
 
-params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
-if (params.theta_reward_func)
-    params.theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
-else
-    params.theta_reward_func = @(theta)(0);
-end
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
 %%theta_reward_func = @(theta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
 
@@ -40,12 +31,24 @@ params.iterations=50;
 params.policy_samples=2;
 params.thetadim = 3;
 params.epsilon = 0.60;
+params.trans_cheat = 1;
 %sparseM = 500; % number of pseudo-inputs
 %GPoffset = 0.3; 
 
 %params.mu = [-0.5 -1 0.5];
 params.mu = -0.5 * ones(1, params.thetadim);
 params.sigma = 1 * ones(1, params.thetadim);
+
+params.plan_off = 0;
+params.reweight_samples = 1;
+params.R_dependency = 0;
+
+params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
+if (params.R_dependency)
+    params.theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
+else
+    params.theta_reward_func = @(theta)(0);
+end
 
 R_samples = params.R_samples; theta_samples=params.theta_samples;
 iterations = params.iterations; policy_samples = params.policy_samples;

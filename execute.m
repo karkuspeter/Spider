@@ -41,7 +41,7 @@ end
 
 % cheat: reproduce transitions to reflect real Pslip, rather than decreased
 % due to edge of world
-for i=1:length(transitions)
+for i=1:length(transitions)*params.trans_cheat;
     transitions(i) = (rand()<2*Pslip);
 end
 R = sum(R);
