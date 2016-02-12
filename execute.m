@@ -1,12 +1,8 @@
-function [ R, transitions ] = execute(world, x0, u_plan, theta)
+function [ R, transitions ] = execute(world, x0, u_plan, theta, params)
 %simulate experience
 %   Detailed explanation goes here
-slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
-Pslip = slip_fun(theta);
-
-%theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
-theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
-
+Pslip = params.slip_fun(theta);
+theta_reward_func = params.theta_reward_func;
 
 actions = {[0 1], [0 -1], [1 0], [-1 0]};
 coord = x0;
@@ -37,7 +33,7 @@ while world.terminal(coord(1), coord(2)) == 0 && size(R,1) < 150
     if (next_coord(1) < 1 || next_coord(1) > size(world.r,1) || next_coord(2) < 1 || next_coord(2) > size(world.r,2))
         next_coord = coord + move_good;
     end
-  
+    
     coord = next_coord;
     transitions = [transitions; slipped];
     R = [R; (world.r(coord(1), coord(2))+theta_reward_func(theta))];

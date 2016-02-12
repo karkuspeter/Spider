@@ -1,5 +1,4 @@
 % load environment
-world = 0;
 
 if ~exist('minimize')
     run ../gpml-matlab-v3.6-2015-07-07/startup.m;
@@ -7,33 +6,60 @@ if ~exist('minimize')
 end
 
 % initialize parameters
+params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
+                'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
+                'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
+                'plan_off', 0, 'reweight_samples', 0, ...
+                'theta_reward_func', 0, 'slip_fun', 0);
+
+params.plan_off = 0;
+params.reweight_samples = 1;
+params.R_dependency = 0;
+
+params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
+if (params.theta_reward_func)
+    params.theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
+else
+    params.theta_reward_func = @(theta)(0);
+end
+%theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
+%%theta_reward_func = @(theta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
+
 if ~exist('output_off')
     output_off = 0;
 end
-if ~exist('plan_off')
-    plan_off = 0;
-end
-if ~exist('reweight_samples')
-    reweight_samples = 1;
-end
-R_samples=8;
-theta_samples=50;
-iterations=20;
-policy_samples=4;
-thetadim = 3;
-epsilon = 0.60;
-sparseM = 500; % number of pseudo-inputs
-GPoffset = 0.3;
+%if ~exist('plan_off')
+%    plan_off = 0;
+%end
+%if ~exist('reweight_samples')
+%    reweight_samples = 1;
+%end
+params.R_samples=16;
+params.theta_samples=20;
+params.iterations=50;
+params.policy_samples=2;
+params.thetadim = 3;
+params.epsilon = 0.60;
+%sparseM = 500; % number of pseudo-inputs
+%GPoffset = 0.3; 
 
-mu = [-0.5 -1 0.5];
-%mu = -0.5 * ones(1, thetadim);
-sigma = 0.5 * ones(1, thetadim);
+%params.mu = [-0.5 -1 0.5];
+params.mu = -0.5 * ones(1, params.thetadim);
+params.sigma = 1 * ones(1, params.thetadim);
+
+R_samples = params.R_samples; theta_samples=params.theta_samples;
+iterations = params.iterations; policy_samples = params.policy_samples;
+thetadim = params.thetadim; epsilon = params.epsilon;
+mu = params.mu; sigma = params.sigma;
 
 init_p = 0.2;
+
 model = struct('p', 0, 'f', @(m, z) m.p);
 model.p = init_p;
 
-world = world1();
+if ~exist('world')
+    world = world1();
+end
 x0 = [1 2];
 
 R_hist = [];
@@ -68,7 +94,7 @@ for iter = 1:iterations
         prev_plan = init_plan;
         for i=1:R_samples
             % plan 
-            if(plan_off)
+            if(params.plan_off)
                 u_plan = bridge_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
@@ -82,7 +108,7 @@ for iter = 1:iterations
                 %transitions = [];
             end
             % execute plan, get real world experience
-            [Ri, ti] = execute(world, x0, u_plan, theta);
+            [Ri, ti] = execute(world, x0, u_plan, theta, params);
             R = R + Ri/R_samples;
             transitions = [transitions; ti];
             
@@ -90,8 +116,7 @@ for iter = 1:iterations
             Pslip = sum(transitions)/size(transitions,1)/2;
 
         end
-        slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
-        guess_hist = [guess_hist; Pslip slip_fun(theta)];
+        guess_hist = [guess_hist; Pslip params.slip_fun(theta)];
             
         theta_hist = [theta_hist; theta];
         R_hist = [R_hist; R];
@@ -106,7 +131,7 @@ for iter = 1:iterations
     Dw = zeros(size(Dtheta,1),1);
     Dr = R_hist(dex_start:end, :);
     %compute weights
-    if (reweight_samples)
+    if (params.reweight_samples)
         for i=1:min(policy_samples, size(Dw,1)/theta_samples)
             dex = (i-1)*theta_samples+1:(i)*theta_samples;
             prob_sample = prod(normpdf(Dtheta(dex,:), repmat(w_hist(end-i+1, 1:thetadim), theta_samples, 1), repmat(w_hist(end-i+1, thetadim+1:end), theta_samples, 1)),2);
