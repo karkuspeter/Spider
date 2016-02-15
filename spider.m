@@ -10,7 +10,8 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
                 'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
-                'theta_reward_func', 0, 'slip_fun', 0, 'trans_cheat', 0);
+                'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0, ...
+                'R_multiplier', 0);
 
 
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
@@ -25,13 +26,14 @@ end
 %if ~exist('reweight_samples')
 %    reweight_samples = 1;
 %end
-params.R_samples=6;
+params.R_samples=10;
 params.theta_samples=20;
 params.iterations=100;
 params.policy_samples=2;
 params.thetadim = 3;
 params.epsilon = 0.60;
 params.trans_cheat = 6;
+params.R_multiplier = 1;
 %sparseM = 500; % number of pseudo-inputs
 %GPoffset = 0.3; 
 
@@ -41,13 +43,13 @@ params.sigma = 1 * ones(1, params.thetadim);
 
 params.plan_off = 0;
 params.reweight_samples = 1;
-params.R_dependency = 0;
+params.R_dependency = 1;
 
 params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
 if (params.R_dependency)
-    params.theta_reward_func = @(theta)min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5);
+    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
 else
-    params.theta_reward_func = @(theta)(0);
+    params.R_func = @(R, theta)(R);
 end
 
 R_samples = params.R_samples; theta_samples=params.theta_samples;
@@ -80,8 +82,8 @@ total_samples = 0;
 % p2(p2==0) = 1;
 % p1==p2
 
-[dummy, init_plan] = plan(world, init_p, 0);
-bridge_plan = plan(world, 0, 0);
+[dummy, init_plan] = plan(world, init_p, 0, 0);
+bridge_plan = plan(world, 0, 0, 0);
 
 for iter = 1:iterations
     D = [];
@@ -91,9 +93,11 @@ for iter = 1:iterations
         % sample theta
         theta = normrnd(mu, sigma);
 
-        R = 0;
+        R = [];
+        R_model = [];
         transitions = [];
         Pslip = init_p;
+        R_est = 0;
         prev_plan = init_plan;
         for i=1:R_samples
             % plan 
@@ -102,25 +106,30 @@ for iter = 1:iterations
                 plan_raw = init_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
-                [u_plan, plan_raw] = plan(world, Pslip, prev_plan);
+                [u_plan, plan_raw] = plan(world, Pslip, prev_plan, R_est);
             end
 
             if ~isequal(plan_raw, prev_plan)
                 wasted_plans = wasted_plans + i;
                 i = 1;
-                R = 0;
+                R = [];
+                R_model = [];
                 %transitions = [];
             end
             % execute plan, get real world experience
-            [Ri, ti] = execute(world, x0, u_plan, theta, params);
-            R = R + Ri/R_samples;
+            [Ri, ti, Rnomi] = execute(world, x0, u_plan, theta, params);
+            R = [R; Ri];
+            R_model = [R_model; Rnomi];
             transitions = [transitions; ti];
             
             prev_plan = plan_raw;
             Pslip = sum(transitions)/size(transitions,1)/2;
+            R_est = mean(R-R_model)*params.trans_cheat/length(transitions);
+            %should be weighted mean with length of transitions
 
         end
         guess_hist = [guess_hist; Pslip params.slip_fun(theta)];
+        R = mean(R);
             
         theta_hist = [theta_hist; theta];
         R_hist = [R_hist; R];
@@ -173,7 +182,7 @@ for iter = 1:iterations
     %end
 
     if ~output_off
-        [wasted_plans eta_star mu sigma]
+        [wasted_plans eta_star mu sigma params.slip_fun(mu)]
     end
     
     total_samples = total_samples + theta_samples*R_samples + wasted_plans;

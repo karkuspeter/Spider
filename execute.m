@@ -1,13 +1,13 @@
-function [ R, transitions ] = execute(world, x0, u_plan, theta, params)
+function [ R, transitions, Rnom ] = execute(world, x0, u_plan, theta, params)
 %simulate experience
 %   Detailed explanation goes here
 Pslip = params.slip_fun(theta);
-theta_reward_func = params.theta_reward_func;
 
 actions = {[0 1], [0 -1], [1 0], [-1 0]};
 coord = x0;
 transitions = [];
 R = [];
+Rnom = [];
 
 while world.terminal(coord(1), coord(2)) == 0 && size(R,1) < 150
     move_good = cell2mat(actions(u_plan(coord(1), coord(2))));
@@ -36,7 +36,8 @@ while world.terminal(coord(1), coord(2)) == 0 && size(R,1) < 150
     
     coord = next_coord;
     transitions = [transitions; slipped];
-    R = [R; (world.r(coord(1), coord(2))+theta_reward_func(theta))];
+    R = [R; params.R_func(world.r(coord(1), coord(2)), theta)];
+    Rnom = [Rnom; world.r(coord(1), coord(2))];
 end
 
 % cheat: reproduce transitions to reflect real Pslip, rather than decreased
@@ -45,6 +46,7 @@ for i=1:length(transitions)*params.trans_cheat;
     transitions(i) = (rand()<2*Pslip);
 end
 R = sum(R);
+Rnom = sum(Rnom);
 
 end
 

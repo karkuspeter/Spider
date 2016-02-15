@@ -3,8 +3,10 @@
     realRcurv2 = zeros(length(pvals),1);
     
     prev_u = ones(size(world.Tnorm,1),1);
-    plan1 = plan(world, 0, prev_u);
-    plan2 = plan(world, 0.2, prev_u);
+    plan1 = plan(world, 0, prev_u, 0);
+    plan2 = plan(world, 0.2, prev_u, 0);
+    
+    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
    
     for i=1:length(pvals)
         realR1 = [];

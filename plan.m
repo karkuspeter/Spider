@@ -1,4 +1,4 @@
-function [ u, uraw, V, cpu_time] = plan( world, Pslip, policy0)
+function [ u, uraw, V, cpu_time] = plan( world, Pslip, policy0, R_add)
 %value iteration
 %   Detailed explanation goes here
 
@@ -8,7 +8,7 @@ if ~policy0
 end
 
 Pmat = world.Tnorm * (1-2*Pslip) + world.Tslip * Pslip;
-Rmat = world.Rmat;
+Rmat = world.Rmat + ones(size(world.Rmat))*R_add;
 
 %solve MDP
 discount = 0.99;
