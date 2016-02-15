@@ -227,7 +227,7 @@ if ~output_off
     %scatter(guess_hist(:,2), guess_hist(:,1));
     
     edges = 0:0.005:0.11;
-    values = edges(2:end);
+    values = edges(2:end)-(edges(2)-edges(1))/2;
     guess_bars = zeros(size(values));
     guess_std = zeros(size(values));
     for i=1:length(values)
