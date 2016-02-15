@@ -1,4 +1,4 @@
-rep = 10;
+rep = 50;
 output_off = 1;
 keep_prev = 0;
 
@@ -35,9 +35,12 @@ ylabel('w (mean of slip function)')
 % xlabel('Iteration')
 % ylabel('w (variance of policy parameter)')
 
-[sum(Rh_vec(end-1,1,:) < 10), size(Rh_vec,3)]
+[sum(Rh_vec(end-1,1,:) < 5), size(Rh_vec,3)]
 
 cumm_reward = mean(sum(Rh_vec(:, :, :), 1),3)
 
+if ~exist('cumm_rhist')
+    cumm_rhist = [];
+end
 cumm_rhist = [cumm_rhist; cumm_reward];
 output_off = 0;

@@ -10,8 +10,7 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
                 'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
-                'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0, ...
-                'R_multiplier', 0);
+                'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0);
 
 
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
@@ -26,14 +25,13 @@ end
 %if ~exist('reweight_samples')
 %    reweight_samples = 1;
 %end
-params.R_samples=10;
+params.R_samples=8;
 params.theta_samples=20;
-params.iterations=100;
+params.iterations=75;
 params.policy_samples=2;
 params.thetadim = 3;
-params.epsilon = 0.60;
+params.epsilon = 0.50;
 params.trans_cheat = 6;
-params.R_multiplier = 1;
 %sparseM = 500; % number of pseudo-inputs
 %GPoffset = 0.3; 
 
@@ -42,7 +40,7 @@ params.mu = -0.5 * ones(1, params.thetadim);
 params.sigma = 1 * ones(1, params.thetadim);
 
 params.plan_off = 0;
-params.reweight_samples = 1;
+params.reweight_samples = 0;
 params.R_dependency = 1;
 
 params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
@@ -84,10 +82,12 @@ total_samples = 0;
 
 [dummy, init_plan] = plan(world, init_p, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
+plan_types = [];
 
 for iter = 1:iterations
     D = [];
     wasted_plans = 0;
+    plan_types = [plan_types; [0 0]];
     
     for j=1:theta_samples
         % sample theta
@@ -99,7 +99,7 @@ for iter = 1:iterations
         Pslip = init_p;
         R_est = 0;
         prev_plan = init_plan;
-        for i=1:R_samples
+        while size(R,1) < R_samples
             % plan 
             if(params.plan_off)
                 u_plan = bridge_plan;
@@ -124,9 +124,24 @@ for iter = 1:iterations
             
             prev_plan = plan_raw;
             Pslip = sum(transitions)/size(transitions,1)/2;
-            R_est = mean(R-R_model)*params.trans_cheat/length(transitions);
+            R_est = (Ri-Rnomi)*params.trans_cheat/length(ti);
+            % now estimate is perfect, but afterwards should use history
+%             if abs(R_est - params.R_func(0, theta)) > 0.0001
+%                 R_est
+%             end
             %should be weighted mean with length of transitions
 
+        end
+        if length(R) ~= R_samples
+            error('R length');
+        end
+        if (u_plan(1,2)==3)
+            plan_types(end,1) = plan_types(end,1) + 1;
+            if sum(u_plan(1:6,2) ~= bridge_plan(1:6,2)) > 0
+                error('bridge plan mismatch');
+            end
+        else
+            plan_types(end,2) = plan_types(end,2) + 1;
         end
         guess_hist = [guess_hist; Pslip params.slip_fun(theta)];
         R = mean(R);
@@ -257,6 +272,9 @@ if ~output_off
     xlabel('Iteration')
     ylabel('w (mean and variance of policy parameter)')
     axis([0,100, -1, 2]);
+    
+    figure()
+    plot(plan_types(:,1));
     
     total_samples
     
