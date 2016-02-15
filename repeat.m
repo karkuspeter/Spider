@@ -1,8 +1,8 @@
-rep = 10;
+rep = 50;
 output_off = 1;
 keep_prev = 0;
 
-if ~keep_prev || ~exist('wh_vec') || ~exits('Rh_vec')
+if ~keep_prev || ~exist('wh_vec') || ~exist('Rh_vec')
     wh_vec = [];
     Rh_vec = [];
 end
@@ -35,4 +35,8 @@ xlabel('Iteration')
 ylabel('w (variance of policy parameter)')
 
 [sum(Rh_vec(end-1,1,:) < 10), size(Rh_vec,3)]
+
+cumm_reward = mean(sum(Rh_vec(:, :, :), 1),3)
+
+cumm_rhist = [cumm_rhist; cumm_reward];
 
