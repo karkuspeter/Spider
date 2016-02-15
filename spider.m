@@ -25,13 +25,13 @@ end
 %if ~exist('reweight_samples')
 %    reweight_samples = 1;
 %end
-params.R_samples=16;
+params.R_samples=6;
 params.theta_samples=20;
-params.iterations=50;
+params.iterations=100;
 params.policy_samples=2;
 params.thetadim = 3;
 params.epsilon = 0.60;
-params.trans_cheat = 1;
+params.trans_cheat = 6;
 %sparseM = 500; % number of pseudo-inputs
 %GPoffset = 0.3; 
 
@@ -99,6 +99,7 @@ for iter = 1:iterations
             % plan 
             if(params.plan_off)
                 u_plan = bridge_plan;
+                plan_raw = init_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
                 [u_plan, plan_raw] = plan(world, Pslip, prev_plan);
