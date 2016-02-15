@@ -16,7 +16,7 @@
         time2 = time2 + toc;
         
         tic;
-        [u_plan prev_u prev_V temp] = plan(world, pvals(i), prev_u);
+        [u_plan prev_u prev_V temp] = plan(world, pvals(i), prev_u, 0);
         time1 = time1 + toc;
 
         expRcurv(i) = prev_V(1,2);
@@ -47,7 +47,12 @@
     %1D theta
     figure()
     theta = -1.5:0.01:1.5;
-    plot(theta, params.theta_reward_func(theta'), theta, params.slip_fun(theta'));
+    plot(theta, params.R_func(0,theta'), 'LineWidth', 2);
+    set(gca,'fontsize',20);
+    
+    figure()
+    plot(theta, params.slip_fun(theta'), 'LineWidth', 2);
+    set(gca,'fontsize',20);
     
     %10D theta
     figure()
