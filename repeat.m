@@ -1,4 +1,4 @@
-rep = 50;
+rep = 10;
 output_off = 1;
 keep_prev = 0;
 
@@ -24,19 +24,20 @@ plot_confidence((1:size(R_mean,1))', R_mean, R_std);
 xlabel('Iteration')
 ylabel('R')
 
-figure()
-plot_confidence((1:size(w_mean,1))', w_mean(:,1), w_std(:,1));
-xlabel('Iteration')
-ylabel('w (mean of policy parameter)')
 
 figure()
-plot_confidence((1:size(w_mean,1))', w_mean(:,2), w_std(:,2));
+plot_confidence((1:size(w_mean,1))', w_mean(:,1:end/2), w_std(:,1:end/2), params.slip_fun);
 xlabel('Iteration')
-ylabel('w (variance of policy parameter)')
+ylabel('w (mean of slip function)')
+
+% figure()
+% plot_confidence((1:size(w_mean,1))', w_mean(:,2), w_std(:,2));
+% xlabel('Iteration')
+% ylabel('w (variance of policy parameter)')
 
 [sum(Rh_vec(end-1,1,:) < 10), size(Rh_vec,3)]
 
 cumm_reward = mean(sum(Rh_vec(:, :, :), 1),3)
 
 cumm_rhist = [cumm_rhist; cumm_reward];
-
+output_off = 0;
