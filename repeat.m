@@ -1,4 +1,4 @@
-rep = 50;
+rep = 10;
 output_off = 1;
 keep_prev = 0;
 

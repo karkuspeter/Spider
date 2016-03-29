@@ -5,6 +5,11 @@ if ~exist('minimize')
     addpath ../SPGP_dist;
 end
 
+
+
+
+
+
 % initialize parameters
 params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
@@ -12,6 +17,10 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
                 'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0);
 
+            
+            
+            
+            
 
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
 %%theta_reward_func = @(theta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
