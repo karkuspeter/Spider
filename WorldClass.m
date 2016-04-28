@@ -9,25 +9,36 @@ classdef WorldClass
         Tstate   % type of state
         terminal % 1 for terminal states
         initial  % 1 for valid initial states
-        actions  % each row is an action, last column represents action type
-        theta    % control parameter
+        actions  % each row is an action
+        %skills   % numbers representing skills, i.e. action types
+        thetas    % each column is control parameters for an action type
+        
+        mdp_T    % transfer function for mdp
+        mdp_R
         
         num_states
         num_actions
     end
     
     methods
-        function vect = effect(obj, action)
-            vect = action(1, 1:2);
-        end
-        
-        function r = Raction(obj, state, next_state, action)
-            %r = -1; % fix for now
-            if(obj.Tstate(state(1), state(2)) == action(3))
-                r = -1;
-            else
-                r = -2;
-            end
+        function r = Raction(obj, state, next_state, action_idx)
+            action = obj.actions(action_idx, :);
+            
+            centers = [0.3 0.6];
+            vars = [0.05 0.03];
+            f1 = @(x)(1*(1 - 0.9*gaussmf(x, [vars(1), centers(1)]) - 0.7*gaussmf(x, [vars(2), centers(2)])));
+            f2 = @(x,slip)(1-1./(1+exp(-(x-0.4)*15*slip)));
+            f =  @(x,slip)(f1(x) + f2(x, slip));
+            slips = [0.1 0.9];  % values between 0 and 1
+            
+            slip = slips(obj.Tstate(state(1), state(2)));
+            theta = obj.thetas{action(3)};
+            r = -5*f(theta, slip);
+%             if(obj.Tstate(state(1), state(2)) == action(3))
+%                 r = 0;
+%             else
+%                 r = -1;
+%             end
             %r = func(theta, Tstate(state), action(3))
         end
         
@@ -47,7 +58,7 @@ classdef WorldClass
 
         %% This function is used as an observer to give the next state and the next reward using the current state and action
         function [next_state, r, terminal] = mdp_transit(obj, state, action)
-            trans = obj.effect(action);
+            trans = obj.actions(action,1:end-1);
             next_state = state + trans;
             next_idx = num2cell(next_state);
 
@@ -60,17 +71,17 @@ classdef WorldClass
                     return
                 end
             end
-
+            
             r = obj.Rstate(next_idx{:});
             terminal = obj.terminal(next_idx{:});
         end
-
+        
         %% This function is used as an observer to give the next state and the next reward using the current state and action
         function [next_state, r, terminal] = real_transit(obj, state, action)
             [next_state, r, terminal] = obj.mdp_transit(state, action);
             r = r + obj.Raction(state, next_state, action);
         end
-    
+        
         %% sample initial state, return index
         function stateind = samplestateind(obj)
             % rejection sampling
@@ -82,6 +93,48 @@ classdef WorldClass
                     return;
                 end
             end
+        end
+        
+        %% transpform to MDP formulation. T:[SxSxA] transition matrix, R:[SxSxA] reward matrix
+        % only works for deterministic transition so far
+        function [T, R] = mdp(obj)
+            T = zeros(obj.num_states, obj.num_states, obj.num_actions);
+            R = T;
+            for i=1:obj.num_states
+                sub = obj.stateval(i);
+                if(obj.terminal(sub(1), sub(2)))
+                    T(i, i, :) = ones(1,1,obj.num_actions);
+                    R(i, i, :) = zeros(1,1,obj.num_actions);
+                else
+                    for a=1:obj.num_actions
+                        [next_sub, r, ~] = obj.mdp_transit(sub, a);
+                        next_i = obj.stateind(next_sub);
+                        T(i, next_i, a) = 1;
+                        R(i, next_i, a) = r;
+                    end
+                end
+            end
+        end
+        
+        %% value iteration
+        function [Q, policy] = policy_iteration(obj, discount, policy0)
+            if ~policy0
+                policy0 = ones(obj.num_states,1);
+            else
+                policy0 = reshape(policy0, [numel(policy0), 1]);
+            end
+            [V, policy, iter, cpu] = mdp_policy_iteration(obj.mdp_T, obj.mdp_R, discount, policy0, 100,1);
+            Q = squeeze(sum(obj.mdp_T.*(obj.mdp_R + discount.*repmat(V',obj.num_states, 1, obj.num_actions)), 2));
+
+            [C,~]=max(Q,[],2);                              % finding the max values
+            if(max(max(abs(C-V))) > 0.0001)
+                error('Q and V mismatch')
+            end
+        end
+        
+        %% policy from Q function
+        function [V, policy] = get_policy(obj, Q)
+            [V,policy]=max(Q,[],2);
         end
         
         %% display action
@@ -101,7 +154,23 @@ classdef WorldClass
             str = strcat(str, num2str(act(3)));
             str = strcat(str, ' ');
         end
+        
+        %% display Q matrix
+        function dispQ(obj, Q)
+           % display the final Q matrix
+            disp('Final Q matrix : ');
+            disp(Q)
+            [C,I]=max(Q,[],2);                              % finding the max values
+            disp('Q(optimal):');
+            disp(reshape(C, size(obj.Rstate)));
+            disp('Optimal Policy');
+            disp('*');
+            disp(cellfun(@obj.action2str, num2cell(reshape(I, size(obj.Rstate))),'UniformOutput',false))
+            %disp([action(I(2,1));action(I(3,1));action(I(4,1));action(I(5,1))]);
+        end
+    
     end
     
 end
+
 
