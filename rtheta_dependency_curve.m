@@ -1,6 +1,6 @@
     % R theta dependency effect
     thetavals = -0.2:0.002:1;
-    world1 = world1();
+    world1 = world2();
     plan_type1 = zeros(length(thetavals),1);
     plan_type2 = plan_type1;
     expRcurv1 = plan_type1;
@@ -16,16 +16,16 @@
     for i=1:length(thetavals)
         pval = params.slip_fun(thetadim*thetavals(i));
         [u_plan1 prev_u prev_V temp] = plan(world1, pval, prev_u, params.R_func(0, thetadim*thetavals(i)));
-        expRcurv1(i) = prev_V(1,2);
-        plan_type1(i) = u_plan1(1,2); 
+        expRcurv1(i) = prev_V(world.x0{:});
+        plan_type1(i) = u_plan1(world.x0{:}); 
 
         [u_plan2 prev_u prev_V temp] = plan(world1, pval, prev_u, params2.R_func(0, thetadim*thetavals(i)));
-        expRcurv2(i) = prev_V(1,2);
-        plan_type2(i) = u_plan2(1,2);    
+        expRcurv2(i) = prev_V(world.x0{:});
+        plan_type2(i) = u_plan2(world.x0{:});    
         
         realR = [];
         for j=1:100
-            [R transitions] = execute(world1,[1,2],u_plan2, thetadim*thetavals(i), params2); 
+            [R transitions] = execute(world1,[world.x0{:}],u_plan2, thetadim*thetavals(i), params2); 
             realR = [realR R];
             %realP = [realP sum(transitions)/length(transitions)/2];
         end
