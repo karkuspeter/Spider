@@ -28,7 +28,7 @@ end
 params.R_samples=8;
 params.theta_samples=20;
 params.iterations=75;
-params.policy_samples=2;
+params.policy_samples=1;
 params.thetadim = 3;
 params.epsilon = 0.50;
 params.trans_cheat = 6;
@@ -45,7 +45,8 @@ params.R_dependency = 1;
 
 params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
 if (params.R_dependency)
-    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
+    %params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
+    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [10 0.3])*1-0.5));
 else
     params.R_func = @(R, theta)(R);
 end
@@ -60,10 +61,8 @@ init_p = 0.2;
 model = struct('p', 0, 'f', @(m, z) m.p);
 model.p = init_p;
 
-if ~exist('world')
-    world = world1();
-end
-x0 = [1 2];
+world = world2();
+x0 = world.x0;
 
 R_hist = [];
 Rmean_hist = [];
@@ -117,7 +116,7 @@ for iter = 1:iterations
                 %transitions = [];
             end
             % execute plan, get real world experience
-            [Ri, ti, Rnomi] = execute(world, x0, u_plan, theta, params);
+            [Ri, ti, Rnomi] = execute(world, cell2mat(x0), u_plan, theta, params);
             R = [R; Ri];
             R_model = [R_model; Rnomi];
             transitions = [transitions; ti];
@@ -135,9 +134,10 @@ for iter = 1:iterations
         if length(R) ~= R_samples
             error('R length');
         end
-        if (u_plan(1,2)==3)
+        if (u_plan(x0{:})==3)
             plan_types(end,1) = plan_types(end,1) + 1;
-            if sum(u_plan(1:6,2) ~= bridge_plan(1:6,2)) > 0
+            %note this is world specific!
+            if sum(u_plan(2:7,2) ~= bridge_plan(2:7,2)) > 0
                 error('bridge plan mismatch');
             end
         else
