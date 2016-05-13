@@ -5,6 +5,8 @@ if ~exist('minimize')
     addpath ../SPGP_dist;
 end
 
+addpath ../altmany-export_fig-b894ce6;
+
 % initialize parameters
 params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
@@ -27,9 +29,9 @@ end
 %end
 params.R_samples=8;
 params.theta_samples=20;
-params.iterations=75;
+params.iterations=40;
 params.policy_samples=1;
-params.thetadim = 3;
+params.thetadim = 6;
 params.epsilon = 0.50;
 params.trans_cheat = 6;
 %sparseM = 500; % number of pseudo-inputs
@@ -80,6 +82,7 @@ total_samples = 0;
 % p1==p2
 
 [dummy, init_plan] = plan(world, init_p, 0, 0);
+%bridge_plan = plan(world, 0.3, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
 plan_types = [];
 
