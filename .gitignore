@@ -1,4 +1,7 @@
 *.asv
+*.old
+*.old1
+*.old2
 
 # Windows image file caches
 Thumbs.db
