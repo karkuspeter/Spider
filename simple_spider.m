@@ -96,7 +96,7 @@ ctrls{2}.theta = normrnd(params.mu, params.sigma);
 
 ctrs_num = 2;
 
-Ps_est = [0.1; 0.1];
+Ps_est = [0.4; 0.4];
 Ps_avg = Slip_function([ctrls{1}.mu; ctrls{2}.mu]);
 
 linstat = struct('ctr', [], 'theta_mu', [], 'theta_sigma', [], ...
