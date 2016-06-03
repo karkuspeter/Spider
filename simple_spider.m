@@ -32,7 +32,8 @@ params = struct('thetadim', 0, ...
                 'slip_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'reps_epsilon', 0, 'reps_reweight', 0, ...
                 'mu', 0, 'sigma', 0, ...
-                'method', 0 );
+                'method', 0, ...
+                'cheat_estimation', 0);
 
 if isfield(input_params,'output_off')
     output_off = input_params.output_off;
@@ -54,6 +55,7 @@ params.sigma = 1 * ones(1, params.thetadim);
 
 params.plan_off = 0;
 params.method = 2;
+params.cheat_estimation = 0;
 
 %overright params that are set in input_params
 fields = fieldnames(params);
@@ -249,7 +251,11 @@ for iter = 1:params.iterations
 %          slips_this = reshape(ctr.D(1:ctr.N_theta*params.slip_samples + ctr.N_slips, 3, end), [], 1);
          slips_prev = ctr.D(:,params.thetadim+2,end-1);
          slips_this = ctr.D(1:ctr.N_theta*params.slip_samples + ctr.N_slip, params.thetadim+2, end);
-         Ps_est(action) = mean([slips_prev; slips_this]);
+         if (params.cheat_estimation)
+             Ps_est = Slip_function([ctrls{1}.mu; ctrls{2}.mu]);
+         else
+             Ps_est(action) = mean([slips_prev; slips_this]);
+         end
          Ps_avg = Slip_function([ctrls{1}.mu; ctrls{2}.mu]);
     end
     %cheat: use Pslip best so far
