@@ -1,4 +1,4 @@
-% start from different state
+% start from different state, best: one fully known
 % two edges: well known, one to learn - when to try or give up
 % adjust exploration based on HL risk:  
 %   one way to do it: split the theta sample space into sections in
@@ -7,7 +7,7 @@
 %   section at the lower cost state
 %   if the sections are proport. to stat distr, sampling distribution does
 %   not change
-% change optimistic closer to real
+% BENEFITS should be computed for new policies as well, its unfair now 
 
 % load environment
 function [stats, linstat] = simple_spider(input_params)
@@ -55,7 +55,7 @@ params.sigma = 1 * ones(1, params.thetadim);
 
 params.plan_off = 0;
 params.method = 2;
-params.cheat_estimation = 0;
+params.cheat_estimation = 1;
 
 %overright params that are set in input_params
 fields = fieldnames(params);
@@ -162,7 +162,8 @@ for iter = 1:params.iterations
             weights = n_master/4*ones(1,5);
             weights(1) = n_master/8;
             weights(end) = n_rem-n_master*7/8;
-
+            pi_prev = policy;
+            
             for j=1:4
                 Ps_mod(i) = Ps_est(i)+(Ps_opt(i)-Ps_est(i))*0.25*j;
                 [V, pi, Q] = get_policy(Transition_function(Ps_mod), Ropt);
@@ -172,6 +173,18 @@ for iter = 1:params.iterations
                     weights(j+1:end) = 0;
                     break;
                 end
+                
+                % regret and benefit for each state
+                regret = zeros(size(policy));
+                benefit = zeros(size(policy));
+                for s=1:states_num
+                    % pi_mod: change policy at state s
+                    pi_mod = pi_prev;
+                    pi_mod(s) = pi_prev_inv(s);
+                    regret(s)  = (pol_value - get_policy_val(Q_pol, pi_mod));
+                    benefit(s) = ctrl_benefit(pi_prev_inv(s)) - ctrl_benefit(pi_prev(s));
+                end                
+                pi_prev = pi;
             end
 
             ctrl_benefit(i) = sum(weights.*vals);
