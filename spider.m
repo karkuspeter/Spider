@@ -1,9 +1,11 @@
 % load environment
 
 if ~exist('minimize')
-    run ../gpml-matlab-v3.6-2015-07-07/startup.m;
-    addpath ../SPGP_dist;
+    run ../../gpml-matlab-v3.6-2015-07-07/startup.m;
+    addpath ../../SPGP_dist;
 end
+
+addpath ../../altmany-export_fig-b894ce6;
 
 % initialize parameters
 params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
@@ -14,7 +16,7 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
 
 
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
-%%theta_reward_func = @(theta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
+%%theta_reward_func = @(t heta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
 
 if ~exist('output_off')
     output_off = 0;
@@ -25,13 +27,13 @@ end
 %if ~exist('reweight_samples')
 %    reweight_samples = 1;
 %end
-params.R_samples=8;
-params.theta_samples=100;
-params.iterations=150;
-params.policy_samples=6;
-params.thetadim = 8;
-params.epsilon = 0.60;
-params.trans_cheat = 6;
+params.R_samples=2;
+params.theta_samples=12;
+params.iterations=40;
+params.policy_samples=1;
+params.thetadim = 3;
+params.epsilon = 0.50;
+params.trans_cheat = 1;
 %sparseM = 500; % number of pseudo-inputs
 %GPoffset = 0.3; 
 
@@ -45,7 +47,8 @@ params.R_dependency = 1;
 
 params.slip_fun = @(theta)min(mean(theta.^2/2, 2), 0.4);
 if (params.R_dependency)
-    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
+    %params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [20 0.35])*0.3-0.5));
+    params.R_func = @(R, theta)(R + min(0,sigmf(mean(abs(theta),2), [10 0.3])*1-0.5));
 else
     params.R_func = @(R, theta)(R);
 end
@@ -60,12 +63,15 @@ init_p = 0.2;
 model = struct('p', 0, 'f', @(m, z) m.p);
 model.p = init_p;
 
-if ~exist('world')
-    world = world1();
-end
-x0 = [1 2];
+world = world2();
+x0 = world.x0;
 
 R_hist = [];
+R_raw_hist = [];
+R_real_hist = [];
+R_exp_hist = [];
+
+
 Rmean_hist = [];
 theta_hist = [];
 trans_hist = [];
@@ -81,6 +87,7 @@ total_samples = 0;
 % p1==p2
 
 [dummy, init_plan] = plan(world, init_p, 0, 0);
+%bridge_plan = plan(world, 0.3, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
 plan_types = [];
 
@@ -106,7 +113,7 @@ for iter = 1:iterations
                 plan_raw = init_plan;
             else
                 %Pslip = max(0,model.f(model, theta));
-                [u_plan, plan_raw] = plan(world, Pslip, prev_plan, R_est);
+                [u_plan, plan_raw, V] = plan(world, Pslip, prev_plan, R_est);
             end
 
             if ~isequal(plan_raw, prev_plan)
@@ -117,7 +124,7 @@ for iter = 1:iterations
                 %transitions = [];
             end
             % execute plan, get real world experience
-            [Ri, ti, Rnomi] = execute(world, x0, u_plan, theta, params);
+            [Ri, ti, Rnomi] = execute(world, cell2mat(x0), u_plan, theta, params);
             R = [R; Ri];
             R_model = [R_model; Rnomi];
             transitions = [transitions; ti];
@@ -135,9 +142,10 @@ for iter = 1:iterations
         if length(R) ~= R_samples
             error('R length');
         end
-        if (u_plan(1,2)==3)
+        if (u_plan(x0{:})==3)
             plan_types(end,1) = plan_types(end,1) + 1;
-            if sum(u_plan(1:6,2) ~= bridge_plan(1:6,2)) > 0
+            %note this is world specific!
+            if sum(u_plan(2:7,2) ~= bridge_plan(2:7,2)) > 0
                 error('bridge plan mismatch');
             end
         else
@@ -146,8 +154,18 @@ for iter = 1:iterations
         guess_hist = [guess_hist; Pslip params.slip_fun(theta)];
         R = mean(R);
             
-        theta_hist = [theta_hist; theta];
+        % to check correctness compute real best plan (for actual theta)
+        Pslip_real = params.slip_fun(theta);
+        [~, ~, V_real] = plan(world, Pslip_real, prev_plan, R_est);
+        
+        R_raw_hist = [R_raw_hist; R];
+        R_exp_hist = [R_exp_hist; V(x0{:})];
+        R_real_hist = [R_real_hist; V_real(x0{:})];
+        
+        R = V(x0{:});
         R_hist = [R_hist; R];
+        
+        theta_hist = [theta_hist; theta];        
         trans_hist = [trans_hist; sum(transitions) size(transitions,1)];
     end
     w_hist = [w_hist; mu sigma];
@@ -277,5 +295,15 @@ if ~output_off
     plot(plan_types(:,1));
     
     total_samples
+    
+    
+    plot(R_exp_hist - R_real_hist)
+    figure()
+    plot(1:length(R_real_hist), R_raw_hist - R_real_hist, ...
+         1:length(R_real_hist), R_exp_hist - R_real_hist)
+    xlabel('Iteration')
+    ylabel('DeltaR')
+    
+        
     
 end

@@ -1,3 +1,6 @@
+*.old
+*.m~
+
 *.asv
 *.old
 *.old1

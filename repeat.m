@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 rep = 10;
+=======
+rep = 25;
+>>>>>>> spider-coupling
 output_off = 1;
 keep_prev = 0;
 

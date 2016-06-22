@@ -1,18 +1,19 @@
-function [ world ] = world2()
+function [ world ] = world1()
 %create spider world v1
 
-world = struct('r', 0 * ones(5,5), 'terminal', zeros(5,5), 'Tnorm', [], ...
-    'Tslip', [], 'Rmat', [], 'coord2mat', @(c)(0));
+world = struct('r', -1 * ones(10,20), 'terminal', zeros(10,20), 'x0', [], ...
+    'Tnorm', [], 'Tslip', [], 'Rmat', [], 'coord2mat', @(c)(0));
 
-world.r(2:4, 2:4) = -10;
-world.r(5,3) = 10;
-world.terminal(5,3) = 1;
+world.r(1:end, [1,3, end-2, end]) = -2;
+world.r([1,3, end-2, end], 1:end) = -2;
+world.r([2, end-1], 2:(end-1)) = -1;
+world.r(2:(end-1), [2, end-1]) = -1;
+world.r(4:(end-3), [1, 3:(end-3)]) = -100;
+world.r(end-1,2) = 50;
 
-world.r(3:5, 1) = -200;
-world.r(3:5, 3:4) = -200;
-world.r(7, 2) = 50;
-world.terminal = (world.r ~= -1);
-world.r(4, 5:7) = -60;
+world.terminal = (world.r == -100 | world.r == 50);
+
+world.x0 = {2, 2};
 
 num_states = size(world.r,1)*size(world.r, 2);
 Pmat1 = zeros(num_states, num_states, 4);
