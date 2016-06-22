@@ -63,21 +63,10 @@ end
 
 linstat = struct('R', [], 'R_raw', [], 'R_real', [], 'R_exp', [], 'R_mean', [], ...
                  'theta_mu', [], 'theta_sigma', [], ...
-                 'theta', [], 'trans', [], 'total_samples', 0, ...
+                 'theta', [], 'trans', [], 'total_samples', 0, 'plan_type', [], ...
                  'Ps_est', [], 'Ps_real', [] );
                  %'policy', [], 'reward', [], ...
                  %'Ps_est', [], 'Ps_real', [], 'Ps_avg', []);
-
-% R_raw_hist = [];
-% R_real_hist = [];
-% R_exp_hist = [];
-% 
-% Rmean_hist = [];
-% trans_hist = [];
-% w_hist = [];
-
-% guess_hist = [];
-% total_samples = 0;
 
 R_hist = [];
 theta_hist = [];
@@ -108,12 +97,11 @@ prev_V = zeros(size(world.r));
 [dummy, init_plan] = plan(world, init_p, 0, 0);
 %bridge_plan = plan(world, 0.3, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
-plan_types = [];
 
 for iter = 1:iterations
     D = [];
     wasted_plans = 0;
-    plan_types = [plan_types; [0 0]];
+    linstat.plan_type = [linstat.plan_type; [0 0]];
     
     for j=1:theta_samples
         % sample theta
@@ -162,13 +150,13 @@ for iter = 1:iterations
             error('R length');
         end
         if (u_plan(x0{:})==3)
-            plan_types(end,1) = plan_types(end,1) + 1;
+            linstat.plan_type(end,1) = linstat.plan_type(end,1) + 1;
             %note this is world specific!
             if sum(u_plan(2:7,2) ~= bridge_plan(2:7,2)) > 0
                 error('bridge plan mismatch');
             end
         else
-            plan_types(end,2) = plan_types(end,2) + 1;
+            linstat.plan_type(end,2) = linstat.plan_type(end,2) + 1;
         end
         Ps_real = params.slip_fun(theta);
         
@@ -280,7 +268,7 @@ if ~output_off
     axis([0,100, -1, 2]);
     
     figure()
-    plot(plan_types(:,1));
+    plot(linstat.plan_type(:,1));
     
     linstat.total_samples
     
