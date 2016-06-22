@@ -14,7 +14,8 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
                 'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
-                'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0);
+                'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0, ...
+                'use_mdp_for_eval', 0);
 
 
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
@@ -35,6 +36,7 @@ params.policy_samples=1;
 params.thetadim = 3;
 params.epsilon = 0.50;
 params.trans_cheat = 1;
+params.use_mdp_for_eval = 1;
 
 params.mu = -0.5 * ones(1, params.thetadim);
 params.sigma = 1 * ones(1, params.thetadim);
@@ -123,7 +125,7 @@ for iter = 1:iterations
                 [u_plan, plan_raw, V] = plan(world, Pslip, prev_plan, R_est);
             end
 
-            if ~isequal(plan_raw, prev_plan)
+            if ~params.use_mdp_for_eval && ~isequal(plan_raw, prev_plan)
                 wasted_plans = wasted_plans + i;
                 i = 1;
                 R = [];
@@ -174,7 +176,9 @@ for iter = 1:iterations
         linstat.R_real = [linstat.R_real; V_real(x0{:})];
         
         % overwright R that is a feedback for policy search
-        R = V(x0{:});
+        if (params.use_mdp_for_eval)
+            R = V(x0{:});
+        end
         R_hist = [R_hist; R];
         theta_hist = [theta_hist; theta];
         
