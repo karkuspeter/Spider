@@ -1,11 +1,11 @@
 % load environment
 
 if ~exist('minimize')
-    run ../gpml-matlab-v3.6-2015-07-07/startup.m;
-    addpath ../SPGP_dist;
+    run ../../gpml-matlab-v3.6-2015-07-07/startup.m;
+    addpath ../../SPGP_dist;
 end
 
-addpath ../altmany-export_fig-b894ce6;
+addpath ../../altmany-export_fig-b894ce6;
 
 % initialize parameters
 params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
