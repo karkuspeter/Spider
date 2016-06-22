@@ -1,11 +1,13 @@
-% load environment
+function [stats, linstat] = spider(input_params)
 
+if ~exist('input_params')
+    input_params = struct();
+end
 if ~exist('minimize')
     run ../../gpml-matlab-v3.6-2015-07-07/startup.m;
     addpath ../../SPGP_dist;
+    addpath ../../altmany-export_fig-b894ce6;
 end
-
-addpath ../../altmany-export_fig-b894ce6;
 
 % initialize parameters
 params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
@@ -18,15 +20,14 @@ params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
 %theta_reward_func = @(theta)min(0,sqrt(mean(abs(theta/2), 2))-0.5);
 %%theta_reward_func = @(t heta)min(0,sigmf(sqrt(mean(abs(theta.^2),2)), [20 0.35])*0.3-0.5);
 
-if ~exist('output_off')
+if isfield(input_params,'output_off')
+    output_off = input_params.output_off;
+else
     output_off = 0;
 end
-%if ~exist('plan_off')
-%    plan_off = 0;
-%end
-%if ~exist('reweight_samples')
-%    reweight_samples = 1;
-%end
+
+% define default param values
+
 params.R_samples=2;
 params.theta_samples=12;
 params.iterations=40;
@@ -34,10 +35,7 @@ params.policy_samples=1;
 params.thetadim = 3;
 params.epsilon = 0.50;
 params.trans_cheat = 1;
-%sparseM = 500; % number of pseudo-inputs
-%GPoffset = 0.3; 
 
-%params.mu = [-0.5 -1 0.5];
 params.mu = -0.5 * ones(1, params.thetadim);
 params.sigma = 1 * ones(1, params.thetadim);
 
@@ -53,6 +51,37 @@ else
     params.R_func = @(R, theta)(R);
 end
 
+%overright params that are set in input_params
+fields = fieldnames(params);
+for i=1:numel(fields)
+    if isfield(input_params, fields{i})
+        params.(fields{i}) = input_params.(fields{i});
+    end
+end
+
+% statistics
+
+linstat = struct('R', [], 'R_raw', [], 'R_real', [], 'R_exp', [], 'R_mean', [], ...
+                 'theta_mu', [], 'theta_sigma', [], ...
+                 'theta', [], 'trans', [], 'total_samples', 0, ...
+                 'Ps_est', [], 'Ps_real', [] );
+                 %'policy', [], 'reward', [], ...
+                 %'Ps_est', [], 'Ps_real', [], 'Ps_avg', []);
+
+% R_raw_hist = [];
+% R_real_hist = [];
+% R_exp_hist = [];
+% 
+% Rmean_hist = [];
+% trans_hist = [];
+% w_hist = [];
+
+% guess_hist = [];
+% total_samples = 0;
+
+R_hist = [];
+theta_hist = [];
+
 R_samples = params.R_samples; theta_samples=params.theta_samples;
 iterations = params.iterations; policy_samples = params.policy_samples;
 thetadim = params.thetadim; epsilon = params.epsilon;
@@ -66,19 +95,9 @@ model.p = init_p;
 world = world2();
 x0 = world.x0;
 
-R_hist = [];
-R_raw_hist = [];
-R_real_hist = [];
-R_exp_hist = [];
 
-
-Rmean_hist = [];
-theta_hist = [];
-trans_hist = [];
-w_hist = [];
-guess_hist = [];
 prev_V = zeros(size(world.r));
-total_samples = 0;
+
 
 %compare planners
 % p1 = plan(world, 0.2);
@@ -151,25 +170,34 @@ for iter = 1:iterations
         else
             plan_types(end,2) = plan_types(end,2) + 1;
         end
-        guess_hist = [guess_hist; Pslip params.slip_fun(theta)];
+        Ps_real = params.slip_fun(theta);
+        
+        linstat.Ps_est = [linstat.Ps_est; Pslip];
+        linstat.Ps_real = [linstat.Ps_real; Ps_real];
+        
         R = mean(R);
             
         % to check correctness compute real best plan (for actual theta)
         Pslip_real = params.slip_fun(theta);
         [~, ~, V_real] = plan(world, Pslip_real, prev_plan, R_est);
         
-        R_raw_hist = [R_raw_hist; R];
-        R_exp_hist = [R_exp_hist; V(x0{:})];
-        R_real_hist = [R_real_hist; V_real(x0{:})];
+        linstat.R_raw = [linstat.R_raw; R];
+        linstat.R_exp = [linstat.R_exp; V(x0{:})];
+        linstat.R_real = [linstat.R_real; V_real(x0{:})];
         
+        % overwright R that is a feedback for policy search
         R = V(x0{:});
         R_hist = [R_hist; R];
+        theta_hist = [theta_hist; theta];
         
-        theta_hist = [theta_hist; theta];        
-        trans_hist = [trans_hist; sum(transitions) size(transitions,1)];
+        linstat.R = [linstat.R; R];
+        linstat.theta = [linstat.theta; theta];
+        linstat.trans = [linstat.trans; sum(transitions) size(transitions,1)];
     end
-    w_hist = [w_hist; mu sigma];
-    Rmean_hist = [Rmean_hist; mean(R_hist(end-theta_samples+1:end))];
+    
+    linstat.theta_mu = [linstat.theta_mu; mu];
+    linstat.theta_sigma = [linstat.theta_sigma; sigma];
+    linstat.R_mean = [linstat.R_mean; mean(linstat.R(end-theta_samples+1:end))];
 
     % update policy
     dex_start = max(1, size(theta_hist,1)-theta_samples*policy_samples+1);
@@ -218,51 +246,12 @@ for iter = 1:iterations
         [wasted_plans eta_star mu sigma params.slip_fun(mu)]
     end
     
-    total_samples = total_samples + theta_samples*R_samples + wasted_plans;
+    linstat.total_samples = linstat.total_samples + theta_samples*R_samples + wasted_plans;
    
 end
 
 if ~output_off
 
-%     slip_fun = @(theta)min(sum(theta.^2/2/length(theta)), 0.4);
-%     if thetadim == 1
-%         figure()
-%         hold on
-% 
-%         z = linspace(min(theta_hist)-1, max(theta_hist)+1, 200)';
-%         [m, s2, K] = model.f(model, z);
-% 
-%         plot_confidence(z, m, sqrt(s2));
-%         plot(model.x, model.y, '+', 'MarkerSize', 12)
-%         grid on
-%         xlabel('input, x')
-%         ylabel('output, y')
-%         hold off        
-%     elseif thetadim == 2
-%         figure()
-%         hold on
-%         
-%         val = zeros(100,100);
-%         pred_m = val;
-%         pred_s2 = val;
-%         %x=linspace(min(min(theta_hist))-1,max(max(theta_hist))+1,100);
-%         x=linspace(-1,1,100);
-%         y=x;
-%         for i=1:100
-%             for j=1:100
-%                 val(i,j) = slip_fun([x(i),y(j)]);
-%             end
-%             [m, s2, K] = model.f(model, [x(i)*ones(size(x')), x']);
-%             pred_m(i, :) = m';
-%             pred_s2(i, :) = s2';
-%         end
-%         
-%         surf(x,y, pred_m);
-%         scatter3(model.x(:,1),model.x(:,2),model.y); 
-%         
-%         hold off
-%     end
-    
     figure()
     hold on
     %plot(guess_hist(:,2), guess_hist(:,2), guess_hist(:,2), 0.05*ones(size(guess_hist,1)));
@@ -273,20 +262,19 @@ if ~output_off
     guess_bars = zeros(size(values));
     guess_std = zeros(size(values));
     for i=1:length(values)
-        bin_values = guess_hist( guess_hist(:,2)>=edges(i) & guess_hist(:,2)<edges(i+1), 1);
+        bin_values = linstat.Ps_est(linstat.Ps_real>=edges(i) & linstat.Ps_real<edges(i+1));
         guess_bars(i) = mean(bin_values);
         guess_std(i) = std(bin_values);
     end
-    %bar(values, guess_bars);
     plot(values,values,values, 0.05*ones(size(values)));
     errorbar(values, guess_bars, guess_std);
 
     figure()
-    plot(Rmean_hist)
+    plot(linstat.R_mean)
     xlabel('Iteration')
     ylabel('R')
     figure()
-    plot(w_hist)
+    plot([linstat.theta_mu, linstat.theta_sigma])
     xlabel('Iteration')
     ylabel('w (mean and variance of policy parameter)')
     axis([0,100, -1, 2]);
@@ -294,16 +282,14 @@ if ~output_off
     figure()
     plot(plan_types(:,1));
     
-    total_samples
+    linstat.total_samples
     
     
-    plot(R_exp_hist - R_real_hist)
+    plot(linstat.R_exp - linstat.R_real)
     figure()
-    plot(1:length(R_real_hist), R_raw_hist - R_real_hist, ...
-         1:length(R_real_hist), R_exp_hist - R_real_hist)
+    plot(1:length(linstat.R_real), linstat.R_raw - linstat.R_real, ...
+         1:length(linstat.R_real), linstat.R_exp - linstat.R_real)
     xlabel('Iteration')
     ylabel('DeltaR')
-    
-        
     
 end
