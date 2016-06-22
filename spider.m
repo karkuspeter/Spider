@@ -296,15 +296,14 @@ if ~output_off
     
     total_samples
     
+    
+    plot(R_exp_hist - R_real_hist)
     figure()
-    plot(R_raw_hist - R_real_hist)
+    plot(1:length(R_real_hist), R_raw_hist - R_real_hist, ...
+         1:length(R_real_hist), R_exp_hist - R_real_hist)
     xlabel('Iteration')
     ylabel('DeltaR')
     
         
-    figure()
-    plot(R_exp_hist - R_real_hist)
-    xlabel('Iteration')
-    ylabel('DeltaR')
     
 end
