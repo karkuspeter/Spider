@@ -1,3 +1,6 @@
+*.old
+*.m~
+
 *.asv
 
 # Windows image file caches
