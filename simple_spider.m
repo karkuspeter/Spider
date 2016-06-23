@@ -100,7 +100,7 @@ Ps_est = [0.4; 0.4];
 Ps_avg = Slip_function([ctrls{1}.mu; ctrls{2}.mu]);
 
 linstat = struct('ctr', [], 'theta_mu', [], 'theta_sigma', [], ...
-                 'policy', [], 'reward', [], ...
+                 'policy', [], 'R', [], ...
                  'Ps_est', [], 'Ps_real', [], 'Ps_avg', [], ...
                  'expR', [], 'expRachieved', 0, 'expRbest', 0);
 
@@ -232,7 +232,7 @@ for iter = 1:params.iterations
     
     %updata linstat
     linstat.ctr = [linstat.ctr; action];
-    linstat.reward = [linstat.reward; reward];
+    linstat.R = [linstat.R; reward];
     linstat.theta_mu = [linstat.theta_mu; ctr.mu];
     linstat.theta_sigma = [linstat.theta_mu; ctr.sigma];
     linstat.Ps_real = [linstat.Ps_real; Ps_real'];
@@ -301,7 +301,7 @@ linstat.expR_best = expRmat(1,:,policy(1)) + expRmat(2,:,policy(2)) + expRmat(3,
 
 linstat.expR_achieved = mean(linstat.expR(end-100:end));
 
-cumm_rew = mean(linstat.reward);
+cumm_rew = mean(linstat.R);
 
 
 %% disp results new
@@ -317,11 +317,11 @@ end
 
 % figure()
 % hold on
-% plot(linstat.reward)
-% plot(linstat.reward(linstat.ctr==1,:));
-% plot(linstat.reward(linstat.ctr==2,:));
+% plot(linstat.R)
+% plot(linstat.R(linstat.ctr==1,:));
+% plot(linstat.R(linstat.ctr==2,:));
 % 
-% [mean(linstat.reward), mean(linstat.reward(linstat.ctr==1,:)), mean(linstat.reward(linstat.ctr==2,:))]
+% [mean(linstat.R), mean(linstat.R(linstat.ctr==1,:)), mean(linstat.R(linstat.ctr==2,:))]
 
 % if both learned the same
 

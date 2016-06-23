@@ -1,4 +1,4 @@
-function [stats, linstat] = spider(input_params)
+function [stats, linstat, params] = spider(input_params)
 
 if ~exist('input_params')
     input_params = struct();
@@ -9,9 +9,12 @@ if ~exist('minimize')
     addpath ../../altmany-export_fig-b894ce6;
 end
 
+stats = struct();
+
 % initialize parameters
-params = struct('R_samples', 0, 'theta_samples', 0, 'iterations', 0, ...
+params = struct('R_samples', 0, 'theta_samples', 0, ...
                 'policy_samples', 0, 'thetadim', 0, 'epsilon', 0, ...
+                'iterations', 0, 'total_samples', 0, ...
                 'mu', 0, 'sigma', 0, 'R_dependency', 0, ...
                 'plan_off', 0, 'reweight_samples', 0, ...
                 'R_func', 0, 'slip_fun', 0, 'trans_cheat', 0, ...
@@ -31,7 +34,8 @@ end
 
 params.R_samples=2;
 params.theta_samples=12;
-params.iterations=40;
+params.iterations=Inf;
+params.total_samples=100;
 params.policy_samples=1;
 params.thetadim = 3;
 params.epsilon = 0.50;
@@ -74,7 +78,7 @@ R_hist = [];
 theta_hist = [];
 
 R_samples = params.R_samples; theta_samples=params.theta_samples;
-iterations = params.iterations; policy_samples = params.policy_samples;
+policy_samples = params.policy_samples;
 thetadim = params.thetadim; epsilon = params.epsilon;
 mu = params.mu; sigma = params.sigma;
 
@@ -99,8 +103,9 @@ prev_V = zeros(size(world.r));
 [dummy, init_plan] = plan(world, init_p, 0, 0);
 %bridge_plan = plan(world, 0.3, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
+iter = 1; 
 
-for iter = 1:iterations
+while 1
     D = [];
     wasted_plans = 0;
     linstat.plan_type = [linstat.plan_type; [0 0]];
@@ -189,7 +194,7 @@ for iter = 1:iterations
     
     linstat.theta_mu = [linstat.theta_mu; mu];
     linstat.theta_sigma = [linstat.theta_sigma; sigma];
-    linstat.R_mean = [linstat.R_mean; mean(linstat.R(end-theta_samples+1:end))];
+    linstat.R_mean = [linstat.R_mean; mean(linstat.R_raw(end-theta_samples+1:end))];
 
     % update policy
     dex_start = max(1, size(theta_hist,1)-theta_samples*policy_samples+1);
@@ -240,6 +245,10 @@ for iter = 1:iterations
     
     linstat.total_samples = linstat.total_samples + theta_samples*R_samples + wasted_plans;
    
+    if(linstat.total_samples >= params.total_samples || iter >= params.iterations)
+        break;
+    end
+    iter = iter+1;
 end
 
 if ~output_off
