@@ -2,10 +2,11 @@ function [h] = plot_confidence(x, y_mean, y_std, fillcolor, linecolor, func)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
-if nargin < 4
+if nargin < 4 || fillcolor == 0
+   %fillcolor = [7 7 7]/8;
    fillcolor = [7 7 7]/8;
 end
-if nargin < 5
+if nargin < 5 || linecolor == 0
    colorOrder = get(gca, 'ColorOrder');
    linecolor = colorOrder(mod(length(get(gca, 'Children')), size(colorOrder, 1))+1, :);
 end
