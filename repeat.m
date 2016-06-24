@@ -25,8 +25,8 @@ for i=1:repeats
     cumm_rew_vec(:,:,end+1) = cumm_rew;
 end
 
-rep_stats.Rcumm_mean = mean(cumm_rew_vec,3)
-rep_stats.Rcumm_std = std(cumm_rew_vec,0,3)
+rep_stats.Rcumm_mean = mean(cumm_rew_vec,3);
+rep_stats.Rcumm_std = std(cumm_rew_vec,0,3);
 
 
 % compue mean and std of everything
