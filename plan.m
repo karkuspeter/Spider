@@ -12,7 +12,7 @@ Rmat = world.Rmat + ones(size(world.Rmat))*R_add;
 
 %solve MDP
 discount = 0.99;
-[Vdisc, policy, iter, cpu_time] = mdp_policy_iteration(Pmat, Rmat, discount, policy0, 100,1);
+[Vdisc, policy, iter, cpu_time] = mdp_policy_iteration(Pmat, Rmat, discount, policy0, 100, 0);
 
 % convert to u_plan
 u = zeros(size(world.r));
