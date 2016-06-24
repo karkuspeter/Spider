@@ -174,7 +174,9 @@ while 1
             
         % to check correctness compute real best plan (for actual theta)
         Pslip_real = params.slip_fun(theta);
-        [~, ~, V_real] = plan(world, Pslip_real, prev_plan, R_est);
+        %[~, ~, V_real] = plan(world, Pslip_real, prev_plan, R_est);
+        %disabled to speed up 
+        V_real = V;
         
         linstat.R_raw = [linstat.R_raw; R];
         linstat.R_exp = [linstat.R_exp; V(x0{:})];
