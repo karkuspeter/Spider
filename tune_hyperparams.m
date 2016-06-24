@@ -1,13 +1,19 @@
 hyper_params = struct('R_samples', [1 2 4 8], ...
                       'theta_samples', [6 12 18 24], ...
                       'epsilon', [0.3 0.4 0.5 0.6 0.7]);
-
-hp_list = [struct('output_off', 1, 'iterations', Inf, ...
-                  'total_samples', 5000)]; % start with params for all executions
-
+common_params = struct('output_off', 1, 'iterations', Inf, ...
+                  'total_samples', 5000);
 repeat_setting = 10;
 
-% create a list of all permutations                  
+% hyper_params = struct('R_samples', [4], ...
+%                       'theta_samples', [12], ...
+%                       'epsilon', [0.6 0.7]);
+% common_params = struct('output_off', 1, 'iterations', Inf, ...
+%                   'total_samples', 1000);
+% repeat_setting = 2;
+
+% create a list of all permutations     
+hp_list = [common_params]; % start with params for all executions
 param_names = fieldnames(hyper_params);
 for param_name = param_names(:)'
     hp_list2 = [];
@@ -47,6 +53,7 @@ for i = 1:numel(hp_list)
     h_linstats = cat(3, h_linstats, linstat_vec);
     h_params = cat(3, h_params, params);
     
+    save('results/hyperparam_temp.mat');
 end
 
 % make summary
@@ -56,6 +63,10 @@ for i=1:numel(res_list)
     res_list(i).Rcumm_mean = h_stats(i).Rcumm_mean;
     res_list(i).Rcumm_std = h_stats(i).Rcumm_std;
 end
+
+%save
+save(strcat('results/hyper-', datestr(now,'dd-mm-yyyy-HH-MM'), '.mat'));
+
 % show specific result
 indices = [1 2];
 for ind = indices
