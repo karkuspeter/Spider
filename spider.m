@@ -67,7 +67,7 @@ end
 
 % statistics
 
-linstat = struct('R', [], 'R_raw', [], 'R_real', [], 'R_exp', [], 'R_mean', [], ...
+linstat = struct('R', [], 'R_raw', [], 'R_real', [], 'R_exp', [], 'R_mean', [], 'Rc_est', [], ...
                  'theta_mu', [], 'theta_sigma', [], ...
                  'theta', [], 'trans', [], 'total_samples', 0, 'plan_type', [], ...
                  'Ps_est', [], 'Ps_real', [] );
@@ -104,11 +104,24 @@ prev_V = zeros(size(world.r));
 %bridge_plan = plan(world, 0.3, 0, 0);
 bridge_plan = plan(world, 0, 0, 0);
 iter = 1; 
-
+Pslip = init_p;
+prev_plan = init_plan;
+Pslip_prev = init_p;
+Rc_est_prev = 0;
+        
 while 1
     D = [];
     wasted_plans = 0;
     linstat.plan_type = [linstat.plan_type; [0 0]];
+
+    % plan 
+    if(params.plan_off)
+        u_plan = bridge_plan;
+        plan_raw = init_plan;
+    else
+        [u_plan, plan_raw, V] = plan(world, Pslip_prev, prev_plan, Rc_est_prev);
+    end
+
     
     for j=1:theta_samples
         % sample theta
@@ -117,25 +130,16 @@ while 1
         R = [];
         R_model = [];
         transitions = [];
-        Pslip = init_p;
-        R_est = 0;
-        prev_plan = init_plan;
-        while size(R,1) < R_samples
-            % plan 
-            if(params.plan_off)
-                u_plan = bridge_plan;
-                plan_raw = init_plan;
-            else
-                [u_plan, plan_raw, V] = plan(world, Pslip, prev_plan, R_est);
-            end
 
-            if ~params.use_mdp_for_eval && ~isequal(plan_raw, prev_plan)
-                wasted_plans = wasted_plans + i;
-                i = 1;
-                R = [];
-                R_model = [];
-                %transitions = [];
-            end
+        while size(R,1) < R_samples
+
+%             if ~params.use_mdp_for_eval && ~isequal(plan_raw, prev_plan)
+%                 wasted_plans = wasted_plans + i;
+%                 i = 1;
+%                 R = [];
+%                 R_model = [];
+%                 %transitions = [];
+%             end
             % execute plan, get real world experience
             [Ri, ti, Rnomi] = execute(world, cell2mat(x0), u_plan, theta, params);
             R = [R; Ri];
@@ -144,7 +148,7 @@ while 1
             
             prev_plan = plan_raw;
             Pslip = sum(transitions)/size(transitions,1)/2;
-            R_est = (Ri-Rnomi)*params.trans_cheat/length(ti);
+            Rc_est = (Ri-Rnomi)*params.trans_cheat/length(ti);
             % now estimate is perfect, but afterwards should use history
             %should be weighted mean with length of transitions
 
@@ -152,42 +156,47 @@ while 1
         if length(R) ~= R_samples
             error('R length');
         end
+        %count plan types. note this is world specific!
         if (u_plan(x0{:})==3)
             linstat.plan_type(end,1) = linstat.plan_type(end,1) + 1;
-            %note this is world specific!
             if sum(u_plan(2:7,2) ~= bridge_plan(2:7,2)) > 0
                 error('bridge plan mismatch');
             end
         else
             linstat.plan_type(end,2) = linstat.plan_type(end,2) + 1;
         end
+        
         Ps_real = params.slip_fun(theta);
-        
-        linstat.Ps_est = [linstat.Ps_est; Pslip];
-        linstat.Ps_real = [linstat.Ps_real; Ps_real];
-        
         R = mean(R);
-            
+        linstat.R_raw = [linstat.R_raw; R];
+        
+        % override R that is a feedback for policy search
+        if (params.use_mdp_for_eval)
+            [~, ~, V] = plan(world, Pslip, prev_plan, Rc_est);
+            R = V(x0{:});
+        end
+        
+        R_hist = [R_hist; R];
+        theta_hist = [theta_hist; theta];
+        
         % to check correctness compute real best plan (for actual theta)
         %[~, ~, V_real] = plan(world, Ps_real, prev_plan, R_est);
         %disabled to speed up 
         V_real = V;
         
-        linstat.R_raw = [linstat.R_raw; R];
+        linstat.Ps_est = [linstat.Ps_est; Pslip];
+        linstat.Ps_real = [linstat.Ps_real; Ps_real];
         linstat.R_exp = [linstat.R_exp; V(x0{:})];
         linstat.R_real = [linstat.R_real; V_real(x0{:})];
-        
-        % overwright R that is a feedback for policy search
-        if (params.use_mdp_for_eval)
-            R = V(x0{:});
-        end
-        R_hist = [R_hist; R];
-        theta_hist = [theta_hist; theta];
-        
+        linstat.Rc_est = [linstat.Rc_est; Rc_est];        
         linstat.R = [linstat.R; R];
         linstat.theta = [linstat.theta; theta];
         linstat.trans = [linstat.trans; sum(transitions) size(transitions,1)];
     end
+    
+    % mean Pslip and Rc for next iteration
+    Pslip_prev = mean(linstat.Ps_est(end-params.theta_samples+1:end, :), 1);
+    Rc_est_prev = mean(linstat.Rc_est(end-params.theta_samples+1:end, :), 1);
     
     linstat.theta_mu = [linstat.theta_mu; mu];
     linstat.theta_sigma = [linstat.theta_sigma; sigma];
@@ -268,7 +277,7 @@ if ~output_off
     figure()
     plot(linstat.R_mean)
     xlabel('Iteration')
-    ylabel('R')
+    ylabel('R raw mean')
     figure()
     plot([linstat.theta_mu, linstat.theta_sigma])
     xlabel('Iteration')
@@ -277,11 +286,10 @@ if ~output_off
     
     figure()
     plot(linstat.plan_type(:,1));
+    ylabel('bridge plan used');
     
-    linstat.total_samples
+    disp(linstat.total_samples);
     
-    
-    plot(linstat.R_exp - linstat.R_real)
     figure()
     plot(1:length(linstat.R_real), linstat.R_raw - linstat.R_real, ...
          1:length(linstat.R_real), linstat.R_exp - linstat.R_real)
