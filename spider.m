@@ -35,7 +35,7 @@ end
 params.R_samples=2;
 params.theta_samples=12;
 params.iterations=Inf;
-params.total_samples=100;
+params.total_samples=1000;
 params.policy_samples=1;
 params.thetadim = 3;
 params.epsilon = 0.50;
@@ -126,7 +126,6 @@ while 1
                 u_plan = bridge_plan;
                 plan_raw = init_plan;
             else
-                %Pslip = max(0,model.f(model, theta));
                 [u_plan, plan_raw, V] = plan(world, Pslip, prev_plan, R_est);
             end
 
@@ -147,9 +146,6 @@ while 1
             Pslip = sum(transitions)/size(transitions,1)/2;
             R_est = (Ri-Rnomi)*params.trans_cheat/length(ti);
             % now estimate is perfect, but afterwards should use history
-%             if abs(R_est - params.R_func(0, theta)) > 0.0001
-%                 R_est
-%             end
             %should be weighted mean with length of transitions
 
         end
@@ -173,8 +169,7 @@ while 1
         R = mean(R);
             
         % to check correctness compute real best plan (for actual theta)
-        Pslip_real = params.slip_fun(theta);
-        %[~, ~, V_real] = plan(world, Pslip_real, prev_plan, R_est);
+        %[~, ~, V_real] = plan(world, Ps_real, prev_plan, R_est);
         %disabled to speed up 
         V_real = V;
         
@@ -235,11 +230,9 @@ while 1
     Z = Z(eta_star);
     Z_ext = repmat(Z,[1, size(Dtheta,2)]);
     
-    %if(iter > 4)
-        mu = sum(Z_ext.*Dtheta)/sum(Z);
-        denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
-        sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
-    %end
+    mu = sum(Z_ext.*Dtheta)/sum(Z);
+    denom = ((sum(Z).^2 - sum(Z.^2))/sum(Z));
+    sigma = sqrt(sum(Z_ext.*((Dtheta-repmat(mu,[size(Dtheta,1),1])).^2))/denom);
 
     if ~output_off
         [wasted_plans eta_star mu sigma params.slip_fun(mu)]
