@@ -1,8 +1,9 @@
-hyper_params = struct('R_samples', [1 2 4 8], ...
+hyper_params = struct('R_samples', [2 4 8 12], ...
                       'theta_samples', [6 12 18 24], ...
-                      'epsilon', [0.3 0.4 0.5 0.6 0.7]);
+                      'epsilon', [0.4 0.5 0.6]);
 common_params = struct('output_off', 1, 'iterations', Inf, ...
-                  'total_samples', 5000);
+                  'total_samples', 5000, ...
+                  'trans_cheat', 4);
 repeat_setting = 10;
 
 % hyper_params = struct('R_samples', [4], ...
@@ -68,7 +69,7 @@ end
 save(strcat('results/hyper-', datestr(now,'dd-mm-yyyy-HH-MM'), '.mat'));
 
 % show specific result
-indices = [1 2];
+indices = [4];
 for ind = indices
     rep_stats = h_stats(:,:,ind);
     linstat_vec = h_linstats(:,:,ind);
